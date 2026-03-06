@@ -1,0 +1,194 @@
+import {
+    createContext,
+    useContext,
+    useState,
+    useCallback,
+    ReactNode,
+} from 'react'
+import { OrderService } from '@/api/OrderService'
+import { PaymentOption } from '@/types/Basket'
+import { Basket } from '@/types/Basket'
+import { toaster } from '@/components/ui/toaster.tsx'
+
+type OrderFormState = {
+    firstName: string
+    phone: string
+    comment: string
+    address: string
+    paymentOption: PaymentOption
+}
+
+type OrderContextType = {
+    formState: OrderFormState
+    errors: Record<string, string>
+    isSubmitting: boolean
+    submitError: string | null
+    isSuccess: boolean
+    updateField: (field: keyof OrderFormState, value: string) => void
+    updateSelectField: (field: keyof OrderFormState, value: string[]) => void
+    submitOrder: (basket: Basket) => Promise<boolean>
+    resetForm: () => void
+}
+
+const OrderContext = createContext<OrderContextType | undefined>(undefined)
+
+export const OrderProvider = ({
+    children,
+    userId,
+}: {
+    children: ReactNode
+    userId: number
+}) => {
+    const [formState, setFormState] = useState<OrderFormState>({
+        firstName: '',
+        phone: '',
+        comment: '',
+        address: '',
+        paymentOption: 'cash',
+    })
+
+    const [errors, setErrors] = useState<Record<string, string>>({})
+    const [isSubmitting, setIsSubmitting] = useState(false)
+    const [submitError, setSubmitError] = useState<string | null>(null)
+    const [isSuccess, setIsSuccess] = useState(false)
+
+    const validateForm = useCallback(() => {
+        const newErrors: Record<string, string> = {}
+        let hasEmptyFields = false
+
+        const requiredFields: Array<keyof OrderFormState> = [
+            'firstName',
+            'phone',
+            'address',
+            'paymentOption',
+        ]
+
+        requiredFields.forEach((field) => {
+            if (!formState[field]) {
+                newErrors[field] = 'Обязательное поле'
+                hasEmptyFields = true
+            }
+        })
+
+        if (hasEmptyFields) {
+            setErrors(newErrors)
+            toaster.create({
+                description: 'Заполните обязательные поля',
+                type: 'error',
+            })
+            return false
+        }
+
+        const rawValue = formState.phone.replace(/\D/g, '');
+        if (rawValue.length < 10) {
+            newErrors.phone = 'Некорректный номер телефона'
+            setErrors(newErrors)
+            toaster.create({
+                description: 'Исправьте ошибки в полях',
+                type: 'error',
+            })
+            return false
+        }
+
+        setErrors({})
+        return true
+    }, [formState])
+
+    const updateField = useCallback(
+        (field: keyof OrderFormState, value: string) => {
+            setFormState((prev) => ({
+                ...prev,
+                [field]: value,
+            }))
+            setErrors((prev) => ({ ...prev, [field]: '' }))
+        },
+        []
+    )
+
+    const updateSelectField = useCallback(
+        (field: keyof OrderFormState, value: string[]) => {
+            updateField(field, value[0] || '')
+        },
+        [updateField]
+    )
+
+    const submitOrder = useCallback(
+        async (basket: Basket) => {
+            if (!basket?.basket_id) {
+                setSubmitError('Некорректная корзина')
+                return false
+            }
+
+            if (!validateForm()) {
+                setSubmitError('Заполните обязательные поля')
+                return false
+            }
+
+            setIsSubmitting(true)
+            setSubmitError(null)
+            setIsSuccess(false)
+
+            try {
+                await OrderService.createOrder(userId, {
+                    basket_id: basket.basket_id,
+                    payment_option: formState.paymentOption,
+                    comment: formState.comment,
+                    status: 'created',
+                    first_name: formState.firstName,
+                    address: formState.address,
+                    phone: formState.phone,
+                    discount: 0,
+                })
+
+                setIsSuccess(true)
+                return true
+            } catch (error) {
+                setSubmitError('Ошибка при оформлении заказа')
+                console.error('Order error:', error)
+                return false
+            } finally {
+                setIsSubmitting(false)
+            }
+        },
+        [formState, validateForm, userId]
+    )
+
+    const resetForm = useCallback(() => {
+        setFormState({
+            firstName: '',
+            phone: '',
+            comment: '',
+            address: '',
+            paymentOption: 'cash',
+        })
+        setErrors({})
+        setSubmitError(null)
+        setIsSuccess(false)
+    }, [])
+
+    return (
+        <OrderContext.Provider
+            value={{
+                formState,
+                errors,
+                isSubmitting,
+                submitError,
+                isSuccess,
+                updateField,
+                updateSelectField,
+                submitOrder,
+                resetForm,
+            }}
+        >
+            {children}
+        </OrderContext.Provider>
+    )
+}
+
+export const useOrder = () => {
+    const context = useContext(OrderContext)
+    if (!context) {
+        throw new Error('useOrder must be used within a OrderProvider')
+    }
+    return context
+}

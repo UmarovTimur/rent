@@ -1,0 +1,72 @@
+
+services:
+  db:
+    image: postgres:15
+    container_name: postgres
+    networks:
+      - my_network
+    environment:
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7
+    restart: always
+    container_name: tg-mini-app-redis
+    networks:
+      - my_network
+    ports:
+      - "6379:6379"
+
+  backend:
+    build:
+      context: backend
+    container_name: backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - media:/media
+    command: sh /backend/entrypoint.sh
+    networks:
+      - my_network
+    depends_on:
+      - db
+      - redis
+    env_file:
+      - .env
+    restart: always
+
+  bot:
+    build:
+      context: bot
+    container_name: bot
+    ports:
+      - "8001:8001"
+    networks:
+      - my_network
+    depends_on:
+      - backend
+    environment:
+      - BACKEND_HOST=http://backend:8000
+    env_file:
+      - .env 
+
+  adminer:
+    image: adminer
+    ports:
+      - "8080:8080"
+    networks:
+      - my_network
+    depends_on:
+      - db
+    restart: always
+
+
+volumes:
+  media:
+
+networks:
+  my_network:

@@ -1,0 +1,140 @@
+name: Deploy Backend And Bot
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - backend/**
+      - bot/**
+      - deploy/backend/**
+      - .github/workflows/deploy-backend.yml
+
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  SSH_PORT: ${{ secrets.BACKEND_SSH_PORT != '' && secrets.BACKEND_SSH_PORT || '22' }}
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    outputs:
+      backend_image: ${{ steps.images.outputs.backend_image }}
+      bot_image: ${{ steps.images.outputs.bot_image }}
+      backend_latest: ${{ steps.images.outputs.backend_latest }}
+      bot_latest: ${{ steps.images.outputs.bot_latest }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Lowercase owner
+        id: owner
+        shell: bash
+        run: echo "value=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Compute image tags
+        id: images
+        shell: bash
+        run: |
+          echo "backend_image=${REGISTRY}/${{ steps.owner.outputs.value }}/shawa-bear-backend:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          echo "bot_image=${REGISTRY}/${{ steps.owner.outputs.value }}/shawa-bear-bot:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          echo "backend_latest=${REGISTRY}/${{ steps.owner.outputs.value }}/shawa-bear-backend:latest" >> "$GITHUB_OUTPUT"
+          echo "bot_latest=${REGISTRY}/${{ steps.owner.outputs.value }}/shawa-bear-bot:latest" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          push: true
+          tags: |
+            ${{ steps.images.outputs.backend_image }}
+            ${{ steps.images.outputs.backend_latest }}
+
+      - name: Build and push bot image
+        uses: docker/build-push-action@v6
+        with:
+          context: bot
+          push: true
+          tags: |
+            ${{ steps.images.outputs.bot_image }}
+            ${{ steps.images.outputs.bot_latest }}
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        shell: bash
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo "${{ secrets.BACKEND_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -p "${SSH_PORT}" -H "${{ secrets.BACKEND_SSH_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Ensure deployment directory exists
+        shell: bash
+        run: |
+          ssh -p "${SSH_PORT}" "${{ secrets.BACKEND_SSH_USER }}@${{ secrets.BACKEND_SSH_HOST }}" \
+            "mkdir -p '${{ secrets.BACKEND_DEPLOY_PATH }}'"
+
+      - name: Upload docker compose file
+        shell: bash
+        run: |
+          scp -P "${SSH_PORT}" \
+            deploy/backend/docker-compose.prod.yml \
+            "${{ secrets.BACKEND_SSH_USER }}@${{ secrets.BACKEND_SSH_HOST }}:${{ secrets.BACKEND_DEPLOY_PATH }}/docker-compose.yml"
+
+      - name: Upload env file
+        shell: bash
+        run: |
+          printf '%s' "${{ secrets.BACKEND_ENV_FILE }}" > backend.env
+          scp -P "${SSH_PORT}" backend.env \
+            "${{ secrets.BACKEND_SSH_USER }}@${{ secrets.BACKEND_SSH_HOST }}:${{ secrets.BACKEND_DEPLOY_PATH }}/.env"
+          rm -f backend.env
+
+      - name: Login to GHCR on server
+        shell: bash
+        env:
+          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+        run: |
+          if [ -n "$GHCR_USERNAME" ] && [ -n "$GHCR_TOKEN" ]; then
+            printf '%s' "$GHCR_TOKEN" | ssh -p "${SSH_PORT}" "${{ secrets.BACKEND_SSH_USER }}@${{ secrets.BACKEND_SSH_HOST }}" \
+              "docker login ghcr.io -u '$GHCR_USERNAME' --password-stdin"
+          fi
+
+      - name: Deploy
+        shell: bash
+        run: |
+          ssh -p "${SSH_PORT}" "${{ secrets.BACKEND_SSH_USER }}@${{ secrets.BACKEND_SSH_HOST }}" "
+            cd '${{ secrets.BACKEND_DEPLOY_PATH }}' &&
+            BACKEND_IMAGE='${{ needs.build-and-push.outputs.backend_image }}' \
+            BOT_IMAGE='${{ needs.build-and-push.outputs.bot_image }}' \
+            docker compose pull &&
+            BACKEND_IMAGE='${{ needs.build-and-push.outputs.backend_image }}' \
+            BOT_IMAGE='${{ needs.build-and-push.outputs.bot_image }}' \
+            docker compose up -d --remove-orphans &&
+            docker image prune -f
+          "
