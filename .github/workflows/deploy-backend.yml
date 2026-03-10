@@ -157,3 +157,14 @@ jobs:
             docker compose up -d --remove-orphans &&
             docker image prune -f
           "
+
+      - name: Dump docker status on failure
+        if: failure()
+        shell: bash
+        run: |
+          ssh -p "${SSH_PORT}" "${{ secrets.BACKEND_SSH_USER }}@${{ secrets.BACKEND_SSH_HOST }}" "
+            cd '${{ secrets.BACKEND_DEPLOY_PATH }}' &&
+            docker compose ps &&
+            docker compose logs db --tail=200 &&
+            docker compose logs backend --tail=200
+          "
