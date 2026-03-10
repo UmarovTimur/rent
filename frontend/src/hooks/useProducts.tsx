@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { ProductService } from '@/api/ProductService'
 
 export const useProducts = () => {
@@ -6,7 +6,7 @@ export const useProducts = () => {
     const [error, setError] = useState('')
     const [productsLoaded, setProductsLoaded] = useState(false)
 
-    const loadProducts = async () => {
+    const loadProducts = useCallback(async () => {
         try {
             await ProductService.fetchAllProducts()
             setProductsLoaded(true)
@@ -17,7 +17,7 @@ export const useProducts = () => {
         } finally {
             setLoading(false)
         }
-    }
+    }, [])
 
     const refreshProducts = async () => {
         setLoading(true)
@@ -26,9 +26,9 @@ export const useProducts = () => {
 
     useEffect(() => {
         if (!productsLoaded) {
-            loadProducts()
+            void loadProducts()
         }
-    }, [])
+    }, [loadProducts, productsLoaded])
 
     return {
         loading,

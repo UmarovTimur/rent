@@ -18,7 +18,7 @@ export default function CategoryTitle({
 
     useEffect(() => {
         onVisibilityChange(category, inView)
-    }, [inView])
+    }, [category, inView, onVisibilityChange])
 
     return (
         <Heading size="2xl" fontWeight="800" color="text" ref={ref}>

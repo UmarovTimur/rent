@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { UserService, User, OrderHistory } from '@/api/UserService'
 
 type UserContextType = {
@@ -31,7 +31,7 @@ export const UserProvider = ({
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
 
-    const fetchUser = async () => {
+    const fetchUser = useCallback(async () => {
         setLoading(true)
         try {
             const userData = await UserService.getUserById(userId)
@@ -43,9 +43,9 @@ export const UserProvider = ({
         } finally {
             setLoading(false)
         }
-    }
+    }, [userId])
 
-    const fetchOrderHistory = async () => {
+    const fetchOrderHistory = useCallback(async () => {
         setLoading(true)
         try {
             const history = await UserService.getOrderHistory(userId)
@@ -57,14 +57,14 @@ export const UserProvider = ({
         } finally {
             setLoading(false)
         }
-    }
+    }, [userId])
 
     useEffect(() => {
         if (userId) {
-            fetchUser()
-            fetchOrderHistory()
+            void fetchUser()
+            void fetchOrderHistory()
         }
-    }, [userId])
+    }, [fetchOrderHistory, fetchUser, userId])
 
     const refreshUser = () => {
         fetchUser()

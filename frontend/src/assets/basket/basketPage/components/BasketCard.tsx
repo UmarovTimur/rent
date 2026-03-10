@@ -1,5 +1,5 @@
 ﻿import { Text, Flex, Image, Heading, Center } from '@chakra-ui/react'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useBasketContext, ProductWithQuantity } from '@/contexts/BasketContext'
 import CustomNumberInput from '@/assets/product/components/CustomNumberInput'
 import DeleteProductButton from './DeleteProductButton.tsx'
@@ -22,7 +22,7 @@ export default function BasketCard({ price }: CardProps) {
         useBasketContext()
     const { onClose } = useDrawer()
     const [localQuantity, setLocalQuantity] = useState(price.quantity)
-    const [updateTimeout, setUpdateTimeout] = useState<number | null>(null)
+    const updateTimeoutRef = useRef<number | null>(null)
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
     const [availableQuantity, setAvailableQuantity] = useState<number | null>(null)
 
@@ -109,33 +109,51 @@ export default function BasketCard({ price }: CardProps) {
             ? 99
             : Math.max(1, Math.min(99, remainingAvailableQuantity))
 
+    const handleQuantityChange = useCallback(
+        (newQuantity: number) => {
+            const clampedQuantity = Math.min(
+                Math.max(newQuantity, 1),
+                maxSelectableQuantity
+            )
+            setLocalQuantity(clampedQuantity)
+
+            if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current)
+
+            updateTimeoutRef.current = window.setTimeout(async () => {
+                try {
+                    await updateQuantity(price.basket_item_id, clampedQuantity)
+                } catch (error) {
+                    setLocalQuantity(price.quantity)
+                    console.error(error)
+                }
+            }, 500)
+        },
+        [maxSelectableQuantity, price.basket_item_id, price.quantity, updateQuantity]
+    )
+
     useEffect(() => {
         if (remainingAvailableQuantity == null) return
         if (localQuantity <= maxSelectableQuantity) return
 
         handleQuantityChange(maxSelectableQuantity)
-    }, [localQuantity, maxSelectableQuantity, remainingAvailableQuantity])
+    }, [
+        handleQuantityChange,
+        localQuantity,
+        maxSelectableQuantity,
+        remainingAvailableQuantity,
+    ])
+
+    useEffect(() => {
+        return () => {
+            if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current)
+        }
+    }, [])
 
     const billedDays = useMemo(
         () => getRoundedRentalDaysFromIso(price.rental_start, price.rental_end) ?? 1,
         [price.rental_end, price.rental_start]
     )
     const lineTotal = price.price * localQuantity * billedDays
-
-    const handleQuantityChange = (newQuantity: number) => {
-        const clampedQuantity = Math.min(Math.max(newQuantity, 1), maxSelectableQuantity)
-        setLocalQuantity(clampedQuantity)
-        if (updateTimeout) clearTimeout(updateTimeout)
-        const newTimeout = window.setTimeout(async () => {
-            try {
-                await updateQuantity(price.basket_item_id, clampedQuantity)
-            } catch (error) {
-                setLocalQuantity(price.quantity)
-                console.error(error)
-            }
-        }, 500)
-        setUpdateTimeout(newTimeout)
-    }
 
     const handleDeleteConfirm = async () => {
         await removeFromBasket(price.basket_item_id)
