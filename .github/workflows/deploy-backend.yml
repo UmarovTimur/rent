@@ -1,4 +1,4 @@
-name: Deploy Backend And Bot
+name: Deploy Production Stack
 
 on:
   workflow_dispatch:
@@ -6,9 +6,11 @@ on:
     branches:
       - main
     paths:
+      - frontend/**
       - backend/**
       - bot/**
       - deploy/backend/**
+      - frontend/deploy/**
       - .github/workflows/deploy-backend.yml
 
 concurrency:
@@ -27,8 +29,10 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     outputs:
+      frontend_image: ${{ steps.images.outputs.frontend_image }}
       backend_image: ${{ steps.images.outputs.backend_image }}
       bot_image: ${{ steps.images.outputs.bot_image }}
+      frontend_latest: ${{ steps.images.outputs.frontend_latest }}
       backend_latest: ${{ steps.images.outputs.backend_latest }}
       bot_latest: ${{ steps.images.outputs.bot_latest }}
     steps:
@@ -44,8 +48,10 @@ jobs:
         id: images
         shell: bash
         run: |
+          echo "frontend_image=${REGISTRY}/${{ steps.owner.outputs.value }}/shawa-bear-frontend:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
           echo "backend_image=${REGISTRY}/${{ steps.owner.outputs.value }}/shawa-bear-backend:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
           echo "bot_image=${REGISTRY}/${{ steps.owner.outputs.value }}/shawa-bear-bot:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          echo "frontend_latest=${REGISTRY}/${{ steps.owner.outputs.value }}/shawa-bear-frontend:latest" >> "$GITHUB_OUTPUT"
           echo "backend_latest=${REGISTRY}/${{ steps.owner.outputs.value }}/shawa-bear-backend:latest" >> "$GITHUB_OUTPUT"
           echo "bot_latest=${REGISTRY}/${{ steps.owner.outputs.value }}/shawa-bear-bot:latest" >> "$GITHUB_OUTPUT"
 
@@ -58,6 +64,17 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: frontend
+          push: true
+          build-args: |
+            VITE_API_BASE_URL=${{ secrets.FRONTEND_VITE_API_BASE_URL != '' && secrets.FRONTEND_VITE_API_BASE_URL || '/' }}
+          tags: |
+            ${{ steps.images.outputs.frontend_image }}
+            ${{ steps.images.outputs.frontend_latest }}
 
       - name: Build and push backend image
         uses: docker/build-push-action@v6
@@ -130,9 +147,11 @@ jobs:
         run: |
           ssh -p "${SSH_PORT}" "${{ secrets.BACKEND_SSH_USER }}@${{ secrets.BACKEND_SSH_HOST }}" "
             cd '${{ secrets.BACKEND_DEPLOY_PATH }}' &&
+            FRONTEND_IMAGE='${{ needs.build-and-push.outputs.frontend_image }}' \
             BACKEND_IMAGE='${{ needs.build-and-push.outputs.backend_image }}' \
             BOT_IMAGE='${{ needs.build-and-push.outputs.bot_image }}' \
             docker compose pull &&
+            FRONTEND_IMAGE='${{ needs.build-and-push.outputs.frontend_image }}' \
             BACKEND_IMAGE='${{ needs.build-and-push.outputs.backend_image }}' \
             BOT_IMAGE='${{ needs.build-and-push.outputs.bot_image }}' \
             docker compose up -d --remove-orphans &&

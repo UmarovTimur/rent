@@ -1,4 +1,15 @@
 services:
+  frontend:
+    image: ${FRONTEND_IMAGE}
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_started
+    networks:
+      - app_network
+
   db:
     image: postgres:15
     restart: unless-stopped
@@ -32,8 +43,6 @@ services:
       - .env
     volumes:
       - media:/media
-    ports:
-      - "127.0.0.1:8000:8000"
     depends_on:
       db:
         condition: service_healthy
