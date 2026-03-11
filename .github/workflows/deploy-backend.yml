@@ -126,7 +126,17 @@ jobs:
       - name: Upload env file
         shell: bash
         run: |
+          if [ -z "${{ secrets.BACKEND_ENV_FILE }}" ]; then
+            echo "BACKEND_ENV_FILE secret is empty"
+            exit 1
+          fi
           printf '%s' "${{ secrets.BACKEND_ENV_FILE }}" > backend.env
+          for required_key in DB_NAME DB_USER DB_PASSWORD; do
+            if ! grep -q "^${required_key}=" backend.env; then
+              echo "Missing ${required_key} in BACKEND_ENV_FILE"
+              exit 1
+            fi
+          done
           scp -P "${SSH_PORT}" backend.env \
             "${{ secrets.BACKEND_SSH_USER }}@${{ secrets.BACKEND_SSH_HOST }}:${{ secrets.BACKEND_DEPLOY_PATH }}/.env"
           rm -f backend.env
@@ -147,14 +157,12 @@ jobs:
         run: |
           ssh -p "${SSH_PORT}" "${{ secrets.BACKEND_SSH_USER }}@${{ secrets.BACKEND_SSH_HOST }}" "
             cd '${{ secrets.BACKEND_DEPLOY_PATH }}' &&
-            FRONTEND_IMAGE='${{ needs.build-and-push.outputs.frontend_image }}' \
-            BACKEND_IMAGE='${{ needs.build-and-push.outputs.backend_image }}' \
-            BOT_IMAGE='${{ needs.build-and-push.outputs.bot_image }}' \
-            docker compose pull &&
-            FRONTEND_IMAGE='${{ needs.build-and-push.outputs.frontend_image }}' \
-            BACKEND_IMAGE='${{ needs.build-and-push.outputs.backend_image }}' \
-            BOT_IMAGE='${{ needs.build-and-push.outputs.bot_image }}' \
-            docker compose up -d --remove-orphans &&
+            export FRONTEND_IMAGE='${{ needs.build-and-push.outputs.frontend_image }}' &&
+            export BACKEND_IMAGE='${{ needs.build-and-push.outputs.backend_image }}' &&
+            export BOT_IMAGE='${{ needs.build-and-push.outputs.bot_image }}' &&
+            docker compose --env-file .env config >/dev/null &&
+            docker compose --env-file .env pull &&
+            docker compose --env-file .env up -d --remove-orphans &&
             docker image prune -f
           "
 
@@ -164,7 +172,10 @@ jobs:
         run: |
           ssh -p "${SSH_PORT}" "${{ secrets.BACKEND_SSH_USER }}@${{ secrets.BACKEND_SSH_HOST }}" "
             cd '${{ secrets.BACKEND_DEPLOY_PATH }}' &&
-            docker compose ps &&
-            docker compose logs db --tail=200 &&
-            docker compose logs backend --tail=200
+            export FRONTEND_IMAGE='${{ needs.build-and-push.outputs.frontend_image }}' &&
+            export BACKEND_IMAGE='${{ needs.build-and-push.outputs.backend_image }}' &&
+            export BOT_IMAGE='${{ needs.build-and-push.outputs.bot_image }}' &&
+            docker compose --env-file .env ps &&
+            docker compose --env-file .env logs db --tail=200 &&
+            docker compose --env-file .env logs backend --tail=200
           "

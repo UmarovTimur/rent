@@ -37,6 +37,13 @@ REDIS_PORT=6379
 SERVER_CORS_ORIGINS=https://app.example.com
 ```
 
+Required for production compose interpolation:
+- `DB_NAME`
+- `DB_USER`
+- `DB_PASSWORD`
+
+These must exist in `BACKEND_ENV_FILE`, because `docker compose` reads them while rendering the stack. Image tags are not stored in `.env`; the workflow injects `FRONTEND_IMAGE`, `BACKEND_IMAGE`, and `BOT_IMAGE` at deploy time.
+
 If frontend and backend share one public domain, you can omit `FRONTEND_VITE_API_BASE_URL` and keep the default `/`.
 
 ## Server Bootstrap
