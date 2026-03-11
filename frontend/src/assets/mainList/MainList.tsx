@@ -164,6 +164,8 @@ export default function MainList({
     }, [normalizedSearchQuery])
 
     const availableProductsByCategory = useMemo<CategoryProducts[]>(() => {
+        if (loading) return []
+
         return categories.map((category) => {
             const products = getProductsByCategory(category).filter(
                 (product) =>
@@ -176,7 +178,7 @@ export default function MainList({
                 products,
             }
         })
-    }, [categories, getProductsByCategory, hasValidRange, availableProductIds])
+    }, [categories, getProductsByCategory, hasValidRange, availableProductIds, loading])
 
     const searchableProducts = useMemo(() => {
         const all = availableProductsByCategory.flatMap((entry) => entry.products)

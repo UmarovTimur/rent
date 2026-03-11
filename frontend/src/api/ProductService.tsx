@@ -23,8 +23,7 @@ export const ProductService = {
     },
 
     getUniqueProducts: (): Product[] => {
-        if (!cachedProducts) throw new Error('Data not loaded')
-        return cachedProducts
+        return cachedProducts ?? []
     },
 
     getProductsByCategory: (category: string): Product[] => {
