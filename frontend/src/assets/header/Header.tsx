@@ -83,7 +83,7 @@ const DatePickerField = ({ value, onChange, min }: DatePickerFieldProps) => {
                 onChange={(e) => onChange(e.target.value)}
                 position="absolute"
                 inset="0"
-                opacity={0}
+                opacity="0"
                 pointerEvents="none"
             />
         </Box>

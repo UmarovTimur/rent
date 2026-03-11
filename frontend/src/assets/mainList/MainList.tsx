@@ -1,5 +1,5 @@
 ﻿import { Alert, Box, Flex, Skeleton, Text } from '@chakra-ui/react'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Fuse from 'fuse.js'
 import { useInView } from 'react-intersection-observer'
 import CategoryTitle from './components/CategoryTitle'
@@ -73,13 +73,25 @@ export default function MainList({
     const normalizedSearchQuery = searchQuery.trim()
     const debouncedSearchQuery = useDebouncedValue(normalizedSearchQuery, 1000)
 
-    const handleVisibilityChange = (category: string, isVisible: boolean) => {
-        setVisibleCategories((prev) =>
-            isVisible
-                ? [...prev.filter((c) => c !== category), category]
-                : prev.filter((c) => c !== category)
-        )
-    }
+    const handleVisibilityChange = useCallback(
+        (category: string, isVisible: boolean) => {
+            setVisibleCategories((prev) => {
+                const next = isVisible
+                    ? [...prev.filter((c) => c !== category), category]
+                    : prev.filter((c) => c !== category)
+
+                if (
+                    next.length === prev.length &&
+                    next.every((value, index) => value === prev[index])
+                ) {
+                    return prev
+                }
+
+                return next
+            })
+        },
+        []
+    )
 
     useEffect(() => {
         setIsAutoChangeBlocked(true)
@@ -95,10 +107,19 @@ export default function MainList({
         if (isAutoChangeBlocked) return
         if (!categories.length) return
 
-        setActiveCategory(
+        const nextActiveCategory =
             visibleCategories.length > 0 ? visibleCategories[0] : categories[0]
-        )
-    }, [visibleCategories, isAutoChangeBlocked, categories, setActiveCategory])
+
+        if (nextActiveCategory !== activeCategory) {
+            setActiveCategory(nextActiveCategory)
+        }
+    }, [
+        visibleCategories,
+        isAutoChangeBlocked,
+        categories,
+        activeCategory,
+        setActiveCategory,
+    ])
 
     const uniqueProductCards = useMemo(() => {
         if (loading) return []

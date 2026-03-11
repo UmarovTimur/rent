@@ -117,6 +117,10 @@ export default function MotionDrawer({
         }
     }, [handleTouchMove, handleTouchEnd])
 
+    const dragProgress =
+        drawerHeight > 0 ? Math.min(Math.max(offset / drawerHeight, 0), 1) : 0
+    const backdropOpacity = 1 - dragProgress
+
     return (
         <DrawerContext.Provider value={{ onClose: () => setDrawerOpen(false) }}>
             <Drawer.Root placement="bottom" open={isOpen}>
@@ -134,7 +138,7 @@ export default function MotionDrawer({
                         bg="back/90"
                         backdropFilter="blur(8px)"
                         style={{
-                            opacity: 1 - Math.min(offset / drawerHeight, 1),
+                            opacity: backdropOpacity,
                             transition: 'opacity 0.2s ease',
                         }}
                     />

@@ -208,7 +208,7 @@ export default function BasketCard({ price }: CardProps) {
                     <Text
                         color="text"
                         fontWeight="400"
-                        opacity="50%"
+                        opacity="0.5"
                         textAlign="left"
                         lineHeight="15px"
                         fontSize="xs"
