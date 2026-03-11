@@ -209,7 +209,7 @@ export default function ProductPage({ product }: ProductPageProps) {
                         pos="relative"
                         w="full"
                         px={{ base: '36px', md: '0' }}
-                        textWrap="nowrap"
+                        textShadow="0px -1px 5px rgba(0,0,0,0.65);"
                     >
                         {product.name}
                     </Heading>
@@ -234,7 +234,13 @@ export default function ProductPage({ product }: ProductPageProps) {
                     gap={{ base: '14px', lg: '18px' }}
                 >
                     <Box>
-                        <Text alignSelf="stretch" color="text" opacity={0.8} flex="1">
+                        <Text
+                            paddingX="18px"
+                            paddingBottom="12px"
+                            alignSelf="stretch"
+                            color="text"
+                            opacity={0.8}
+                            flex="1">
                             {product.description}
                         </Text>
                         <Box
@@ -245,24 +251,22 @@ export default function ProductPage({ product }: ProductPageProps) {
                             flex="1"
                             minW={{ lg: '320px' }}
                         >
-                            <Text fontWeight="600" mb="4px">
-                                Период аренды
-                            </Text>
                             <Flex
-                                justifyContent="space-between"
                                 gap="10px"
-                                direction={{ base: 'column', sm: 'row' }}
                                 align={{ base: 'flex-start', sm: 'center' }}
                             >
-                                <Text opacity={0.8} fontSize="sm">
-                                    {hasValidRange
-                                        ? `${formattedStartDate} ${startTime} — ${formattedEndDate} ${endTime}`
-                                        : 'Выберите даты и время аренды на главном экране'}
+                                <Text fontWeight="600" mb="4px">
+                                    Период аренды:
                                 </Text>
                                 <Mark fontWeight="bold" color="accent">
                                     {formatRentalDaysRu(getTripDurationDays())}
                                 </Mark>
                             </Flex>
+                            <Text opacity={0.8} fontSize="sm">
+                                {hasValidRange
+                                    ? `${formattedStartDate} ${startTime} — ${formattedEndDate} ${endTime}`
+                                    : 'Выберите даты и время аренды на главном экране'}
+                            </Text>
                         </Box>
                         {hasValidRange && (
                             <Text

@@ -22,38 +22,42 @@ class BasketService(BaseService, BasketServiceI):
                 basket = Basket(user_id=user_id)
                 session.add(basket)
                 await session.flush()
-
-            total_price = (
-                sum(
-                    calculate_rental_line_total(
-                        # Basket total always uses current product price.
-                        unit_price=item.product.price,
-                        quantity=item.quantity,
-                        rental_start=item.rental_start,
-                        rental_end=item.rental_end,
-                    )
-                    for item in basket.items
+                return BasketResponse(
+                    basket_id=basket.basket_id,
+                    user_id=basket.user_id,
+                    discount=basket.discount,
+                    total_price=0,
+                    items=[],
                 )
-                if basket
-                else 0
-            )
 
-        return BasketResponse(
-            basket_id=basket.basket_id,
-            user_id=basket.user_id,
-            discount=basket.discount,
-            total_price=total_price,
-            items=[
-                BasketItemResponse(
-                    basket_item_id=item.basket_item_id,
-                    product_id=item.product_id,
+            items = list(basket.items)
+            total_price = sum(
+                calculate_rental_line_total(
+                    # Basket total always uses current product price.
+                    unit_price=item.product.price,
                     quantity=item.quantity,
                     rental_start=item.rental_start,
                     rental_end=item.rental_end,
                 )
-                for item in basket.items
-            ],
-        )
+                for item in items
+            )
+
+            return BasketResponse(
+                basket_id=basket.basket_id,
+                user_id=basket.user_id,
+                discount=basket.discount,
+                total_price=total_price,
+                items=[
+                    BasketItemResponse(
+                        basket_item_id=item.basket_item_id,
+                        product_id=item.product_id,
+                        quantity=item.quantity,
+                        rental_start=item.rental_start,
+                        rental_end=item.rental_end,
+                    )
+                    for item in items
+                ],
+            )
 
     async def add_item(self, user_id: int, item_data: BasketItemCreate) -> None:
         async with self.session() as session, session.begin():
