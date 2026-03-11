@@ -123,6 +123,16 @@ jobs:
             deploy/backend/docker-compose.prod.yml \
             "${{ secrets.BACKEND_SSH_USER }}@${{ secrets.BACKEND_SSH_HOST }}:${{ secrets.BACKEND_DEPLOY_PATH }}/docker-compose.yml"
 
+      - name: Upload maintenance scripts
+        shell: bash
+        run: |
+          scp -P "${SSH_PORT}" \
+            deploy/backend/backup-db.sh \
+            deploy/backend/restore-db.sh \
+            "${{ secrets.BACKEND_SSH_USER }}@${{ secrets.BACKEND_SSH_HOST }}:${{ secrets.BACKEND_DEPLOY_PATH }}/"
+          ssh -p "${SSH_PORT}" "${{ secrets.BACKEND_SSH_USER }}@${{ secrets.BACKEND_SSH_HOST }}" \
+            "chmod +x '${{ secrets.BACKEND_DEPLOY_PATH }}/backup-db.sh' '${{ secrets.BACKEND_DEPLOY_PATH }}/restore-db.sh'"
+
       - name: Upload env file
         shell: bash
         run: |
@@ -140,6 +150,14 @@ jobs:
           scp -P "${SSH_PORT}" backend.env \
             "${{ secrets.BACKEND_SSH_USER }}@${{ secrets.BACKEND_SSH_HOST }}:${{ secrets.BACKEND_DEPLOY_PATH }}/.env"
           rm -f backend.env
+
+      - name: Backup production database
+        shell: bash
+        run: |
+          ssh -p "${SSH_PORT}" "${{ secrets.BACKEND_SSH_USER }}@${{ secrets.BACKEND_SSH_HOST }}" "
+            cd '${{ secrets.BACKEND_DEPLOY_PATH }}' &&
+            BACKUP_RETENTION_DAYS='14' ./backup-db.sh
+          "
 
       - name: Login to GHCR on server
         shell: bash

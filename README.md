@@ -107,8 +107,13 @@ cd shawa-bear-tg-mini-app
 Create a .env at project root:
 
 ```bash
-BOT_TOKEN=your_telegram_bot_token
-DATABASE_URL=postgresql://user:pass@db:5432/shawabear
+API_TOKEN=your_telegram_bot_token
+BACKEND_HOST=http://backend:8000
+DB_HOST=db
+DB_PORT=5432
+DB_NAME=rent
+DB_USER=admin
+DB_PASSWORD=strong-password
 ```
 
 ### 3. Launch with Docker
@@ -118,6 +123,7 @@ docker compose up --build
 ```
 
 All services (API, Bot, Postgres) will start automatically.
+Postgres data is stored in the named Docker volume `postgres_data_dev`, so it survives container recreation.
 
 ### 4. (Optional) Front-End Dev Mode
 

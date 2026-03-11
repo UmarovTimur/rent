@@ -46,6 +46,33 @@ These must exist in `BACKEND_ENV_FILE`, because `docker compose` reads them whil
 
 If frontend and backend share one public domain, you can omit `FRONTEND_VITE_API_BASE_URL` and keep the default `/`.
 
+## Database Persistence
+- Local development Postgres uses the named volume `postgres_data_dev`, so data survives container recreation.
+- Production Postgres uses the named volume `postgres_data`, so application deploys do not remove existing data.
+- Do not run `docker compose down -v` on environments where you want to keep the database.
+
+## Database Backups
+- Every production deploy runs `backup-db.sh` before updating containers and stores dumps in `${BACKEND_DEPLOY_PATH}/backups`.
+- Old backups older than 14 days are removed automatically.
+- To create a manual backup on the server:
+
+```bash
+cd "$BACKEND_DEPLOY_PATH"
+./backup-db.sh
+```
+
+- To restore a backup on the server:
+
+```bash
+cd "$BACKEND_DEPLOY_PATH"
+./restore-db.sh ./backups/postgres_YYYY-MM-DDTHH-MM-SSZ.dump
+```
+
+Recommended workflow:
+1. Keep separate databases for `dev` and `prod`.
+2. Move schema changes with Alembic migrations, not by copying the whole production database into development.
+3. Restore a production dump into development only when you explicitly need realistic data, and anonymize sensitive records first.
+
 ## Server Bootstrap
 1. Install Docker Engine + Docker Compose plugin.
 2. Create deploy directory from `BACKEND_DEPLOY_PATH`.

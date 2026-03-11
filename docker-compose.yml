@@ -9,6 +9,8 @@ services:
       - POSTGRES_DB=${DB_NAME}
       - POSTGRES_USER=${DB_USER}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
     ports:
       - "5432:5432"
 
@@ -67,6 +69,7 @@ services:
 
 volumes:
   media:
+  postgres_data_dev:
 
 networks:
   my_network:
