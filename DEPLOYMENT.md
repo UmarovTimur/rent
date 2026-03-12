@@ -22,6 +22,7 @@
 - `GHCR_USERNAME` (required if GHCR packages are private)
 - `GHCR_TOKEN` (PAT with `read:packages`, required if GHCR packages are private)
 - `FRONTEND_VITE_API_BASE_URL` (optional, defaults to `/`)
+  Use `/` when frontend and backend are on the same public domain. Do not set an `http://...` value for an HTTPS site, or browsers will block API calls as mixed content.
 
 Minimal `BACKEND_ENV_FILE` example:
 ```env
@@ -44,7 +45,8 @@ Required for production compose interpolation:
 
 These must exist in `BACKEND_ENV_FILE`, because `docker compose` reads them while rendering the stack. Image tags are not stored in `.env`; the workflow injects `FRONTEND_IMAGE`, `BACKEND_IMAGE`, and `BOT_IMAGE` at deploy time.
 
-If frontend and backend share one public domain, you can omit `FRONTEND_VITE_API_BASE_URL` and keep the default `/`.
+If frontend and backend share one public domain, omit `FRONTEND_VITE_API_BASE_URL` and keep the default `/`.
+If you need an absolute URL, use `https://...`, never `http://...`.
 
 ## Database Persistence
 - Local development Postgres uses the named volume `postgres_data_dev`, so data survives container recreation.
