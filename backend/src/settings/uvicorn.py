@@ -11,6 +11,8 @@ class UvicornSettings(BaseSettings):
     reload: bool = False
     factory: bool = True
     access_log: bool = False
+    proxy_headers: bool = True
+    forwarded_allow_ips: str = "*"
     loop: Literal["none", "auto", "asyncio", "uvloop"] = "asyncio"
     host: str = "0.0.0.0"  # noqa: S104
     port: int = 8000

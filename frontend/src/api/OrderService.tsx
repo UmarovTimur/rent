@@ -17,7 +17,7 @@ export const OrderService = {
         }
     ): Promise<Basket> => {
         const response = await axios.post<Basket>(
-            `${API_BASE_URL}api/v1/order?user_id=${userId}`,
+            `${API_BASE_URL}api/v1/order/?user_id=${userId}`,
             orderData
         )
         return response.data
