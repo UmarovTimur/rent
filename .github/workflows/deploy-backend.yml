@@ -173,37 +173,37 @@ jobs:
       - name: Deploy
         shell: bash
         env:
-           FRONTEND_IMAGE: ${{ needs.build-and-push.outputs.frontend_image }}
-           BACKEND_IMAGE: ${{ needs.build-and-push.outputs.backend_image }}
-           BOT_IMAGE: ${{ needs.build-and-push.outputs.bot_image }}
+          FRONTEND_IMAGE: ${{ needs.build-and-push.outputs.frontend_image }}
+          BACKEND_IMAGE: ${{ needs.build-and-push.outputs.backend_image }}
+          BOT_IMAGE: ${{ needs.build-and-push.outputs.bot_image }}
         run: |
-           ssh -p "${SSH_PORT}" "${{ secrets.BACKEND_SSH_USER }}@${{ secrets.BACKEND_SSH_HOST }}" \
-             FRONTEND_IMAGE="${FRONTEND_IMAGE}" \
-             BACKEND_IMAGE="${BACKEND_IMAGE}" \
-             BOT_IMAGE="${BOT_IMAGE}" \
-             bash -s << 'EOF'
-               cd '${{ secrets.BACKEND_DEPLOY_PATH }}' &&
-               docker compose --env-file .env config >/dev/null &&
-               docker compose --env-file .env pull &&
-               docker compose --env-file .env up -d --remove-orphans &&
-               docker image prune -f
-           EOF 
+          printf '%s\n' \
+            "cd '${{ secrets.BACKEND_DEPLOY_PATH }}'" \
+            'docker compose --env-file .env config >/dev/null' \
+            'docker compose --env-file .env pull' \
+            'docker compose --env-file .env up -d --remove-orphans' \
+            'docker image prune -f' \
+          | ssh -p "${SSH_PORT}" "${{ secrets.BACKEND_SSH_USER }}@${{ secrets.BACKEND_SSH_HOST }}" \
+            FRONTEND_IMAGE="${FRONTEND_IMAGE}" \
+            BACKEND_IMAGE="${BACKEND_IMAGE}" \
+            BOT_IMAGE="${BOT_IMAGE}" \
+            bash -s
 
       - name: Dump docker status on failure
         if: failure()
         shell: bash
         env:
-           FRONTEND_IMAGE: ${{ needs.build-and-push.outputs.frontend_image }}
-           BACKEND_IMAGE: ${{ needs.build-and-push.outputs.backend_image }}
-           BOT_IMAGE: ${{ needs.build-and-push.outputs.bot_image }}
+          FRONTEND_IMAGE: ${{ needs.build-and-push.outputs.frontend_image }}
+          BACKEND_IMAGE: ${{ needs.build-and-push.outputs.backend_image }}
+          BOT_IMAGE: ${{ needs.build-and-push.outputs.bot_image }}
         run: |
-           ssh -p "${SSH_PORT}" "${{ secrets.BACKEND_SSH_USER }}@${{ secrets.BACKEND_SSH_HOST }}" \
-             FRONTEND_IMAGE="${FRONTEND_IMAGE}" \
-             BACKEND_IMAGE="${BACKEND_IMAGE}" \
-             BOT_IMAGE="${BOT_IMAGE}" \
-             bash -s << 'EOF'
-               cd '${{ secrets.BACKEND_DEPLOY_PATH }}' &&
-               docker compose --env-file .env ps &&
-               docker compose --env-file .env logs db --tail=200 &&
-               docker compose --env-file .env logs backend --tail=200
-           EOF 
+          printf '%s\n' \
+            "cd '${{ secrets.BACKEND_DEPLOY_PATH }}'" \
+            'docker compose --env-file .env ps' \
+            'docker compose --env-file .env logs db --tail=200' \
+            'docker compose --env-file .env logs backend --tail=200' \
+          | ssh -p "${SSH_PORT}" "${{ secrets.BACKEND_SSH_USER }}@${{ secrets.BACKEND_SSH_HOST }}" \
+            FRONTEND_IMAGE="${FRONTEND_IMAGE}" \
+            BACKEND_IMAGE="${BACKEND_IMAGE}" \
+            BOT_IMAGE="${BOT_IMAGE}" \
+            bash -s
