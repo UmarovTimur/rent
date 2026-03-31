@@ -151,6 +151,7 @@ jobs:
               exit 1
             fi
           done
+          sed -i '/^FRONTEND_IMAGE=/d;/^BACKEND_IMAGE=/d;/^BOT_IMAGE=/d' backend.env
           printf '\nFRONTEND_IMAGE=%s\nBACKEND_IMAGE=%s\nBOT_IMAGE=%s\n' \
             "${FRONTEND_IMAGE}" "${BACKEND_IMAGE}" "${BOT_IMAGE}" >> backend.env
           scp -P "${SSH_PORT}" backend.env \
