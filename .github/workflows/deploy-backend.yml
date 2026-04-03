@@ -142,15 +142,15 @@ jobs:
 
       - name: Upload env file
         shell: bash
-        env:
-          FRONTEND_IMAGE: ${{ needs.build-and-push.outputs.frontend_image }}
-          BACKEND_IMAGE: ${{ needs.build-and-push.outputs.backend_image }}
-          BOT_IMAGE: ${{ needs.build-and-push.outputs.bot_image }}
         run: |
           if [ -z "${{ secrets.BACKEND_ENV_FILE }}" ]; then
             echo "BACKEND_ENV_FILE secret is empty"
             exit 1
           fi
+          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          FRONTEND_IMAGE="${{ env.REGISTRY }}/${OWNER}/shawa-bear-frontend:${{ github.sha }}"
+          BACKEND_IMAGE="${{ env.REGISTRY }}/${OWNER}/shawa-bear-backend:${{ github.sha }}"
+          BOT_IMAGE="${{ env.REGISTRY }}/${OWNER}/shawa-bear-bot:${{ github.sha }}"
           printf '%s' "${{ secrets.BACKEND_ENV_FILE }}" > backend.env
           for required_key in DB_NAME DB_USER DB_PASSWORD; do
             if ! grep -q "^${required_key}=" backend.env; then
