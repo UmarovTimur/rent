@@ -127,7 +127,7 @@ jobs:
         shell: bash
         run: |
           scp -P "${SSH_PORT}" \
-            deploy/backend/nginx.conf \
+            frontend/deploy/nginx.conf \
             "${{ secrets.BACKEND_SSH_USER }}@${{ secrets.BACKEND_SSH_HOST }}:${{ secrets.BACKEND_DEPLOY_PATH }}/nginx.conf"
 
       - name: Upload maintenance scripts
