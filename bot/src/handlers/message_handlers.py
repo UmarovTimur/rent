@@ -7,11 +7,10 @@ from aiogram import Router
 from aiogram.filters import Command
 from aiogram.types import Message
 
-from src.config import create_user_url, get_user_by_id_url
+from src.config import REQUEST_TIMEOUT, create_user_url, get_user_by_id_url
 
 router = Router(name="message_handlers")
 logger = logging.getLogger(__name__)
-REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=10)
 SERVICE_UNAVAILABLE_TEXT = "Сервис временно недоступен. Пожалуйста, попробуйте позже."
 UNEXPECTED_ERROR_TEXT = "Произошла непредвиденная ошибка. Пожалуйста, попробуйте позже."
 WELCOME_TEXT = "Добро пожаловать! Нажмите на кнопку «Магазин», чтобы открыть мини-приложение."

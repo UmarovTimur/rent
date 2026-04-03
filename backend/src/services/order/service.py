@@ -28,7 +28,7 @@ class OrderService(BaseService, OrderServiceI):
         self.basket_service = basket_service
         self.rental_service = rental_service
 
-    async def create_order(self, user_id: int, order_data: OrderCreate) -> None:
+    async def create_order(self, user_id: int, order_data: OrderCreate) -> int:
         async with self.session() as session, session.begin():
             query = select(Basket).where(Basket.user_id == user_id).options(
                 joinedload(Basket.items).joinedload(BasketItem.product),
@@ -90,6 +90,7 @@ class OrderService(BaseService, OrderServiceI):
                 session.add(order_item)
 
         await self.basket_service.clear_basket(order_data.basket_id)
+        return order_id
 
     async def get_order(self, order_id: int) -> OrderResponse:
         async with self.session() as session:
@@ -132,6 +133,7 @@ class OrderService(BaseService, OrderServiceI):
                 OrderItemResponse(
                     order_item_id=item.order_item_id,
                     product_id=item.product_id,
+                    product_name=item.product.name if item.product else None,
                     unit_price=item.unit_price,
                     quantity=item.quantity,
                     rental_start=item.rental_start,

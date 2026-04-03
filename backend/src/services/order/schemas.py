@@ -10,6 +10,7 @@ class OrderStatus(StrEnum):
     COMPLETED = "completed"
     TAKEN = "taken"
     CANCELED = "canceled"
+    PAUSED = "paused"
 
 
 class PaymentOption(StrEnum):
@@ -33,6 +34,7 @@ class OrderCreate(BaseModel):
 class OrderItemResponse(BaseModel):
     order_item_id: int
     product_id: int
+    product_name: str | None = None
     unit_price: int
     quantity: int
     rental_start: datetime | None = None

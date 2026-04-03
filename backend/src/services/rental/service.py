@@ -190,7 +190,11 @@ class RentalService(BaseService, RentalServiceI):
                 OrderItem.rental_end.is_not(None),
                 OrderItem.rental_start < date_to,
                 OrderItem.rental_end > date_from,
-                Order.status != OrderStatus.CANCELED.value,
+                Order.status.not_in([
+                    OrderStatus.CANCELED.value,
+                    OrderStatus.PAUSED.value,
+                    OrderStatus.COMPLETED.value,
+                ]),
             )
             .group_by(OrderItem.rental_start, OrderItem.rental_end)
         )

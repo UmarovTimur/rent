@@ -24,3 +24,9 @@ class UserService(BaseService, UserServiceI):
 
         type_adapter = TypeAdapter(UserResponse)
         return type_adapter.validate_python(user)
+
+    async def get_admins(self) -> list[int]:
+        async with self.session() as session, session.begin():
+            query = select(User.user_id).where(User.is_admin == True)  # noqa: E712
+            result = await session.execute(query)
+            return list(result.scalars().all())

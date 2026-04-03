@@ -12,3 +12,7 @@ class UserServiceI(Protocol):
     @abstractmethod
     async def get_by_id(self, user_id: int) -> UserResponse:
         ...
+
+    @abstractmethod
+    async def get_admins(self) -> list[int]:
+        ...

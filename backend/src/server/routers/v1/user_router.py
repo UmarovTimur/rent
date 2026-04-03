@@ -31,3 +31,10 @@ async def get_user_by_id(
     user_service: UserServiceI = Depends(get_user_service),
 ) -> UserResponse:
     return await user_service.get_by_id(user_id)
+
+
+@router.get("/admins", response_model=list[int])
+async def get_admins(
+    user_service: UserServiceI = Depends(get_user_service),
+) -> list[int]:
+    return await user_service.get_admins()
