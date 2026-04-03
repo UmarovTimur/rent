@@ -122,6 +122,13 @@ jobs:
           scp -P "${SSH_PORT}" \
             deploy/backend/docker-compose.prod.yml \
             "${{ secrets.BACKEND_SSH_USER }}@${{ secrets.BACKEND_SSH_HOST }}:${{ secrets.BACKEND_DEPLOY_PATH }}/docker-compose.yml"
+          
+      - name: Upload nginx config
+        shell: bash
+        run: |
+          scp -P "${SSH_PORT}" \
+            deploy/backend/nginx.conf \
+            "${{ secrets.BACKEND_SSH_USER }}@${{ secrets.BACKEND_SSH_HOST }}:${{ secrets.BACKEND_DEPLOY_PATH }}/nginx.conf"
 
       - name: Upload maintenance scripts
         shell: bash
