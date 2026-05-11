@@ -11,6 +11,7 @@ import {
 import { useEffect, useMemo, useState } from 'react'
 import { IoClose } from 'react-icons/io5'
 import { Product } from '@/types/Products'
+import { productImageSrc } from '@/utils/image'
 import CustomNumberInput from './components/CustomNumberInput'
 import ToBasketButton from './components/ToBasketButton'
 import { useDrawer } from '@/contexts/DrawerContext'
@@ -189,11 +190,7 @@ export default function ProductPage({ product }: ProductPageProps) {
                     mx="auto"
                 >
                     <Image
-                        src={
-                            product.image_url
-                                ? `products/${product.image_url}`
-                                : 'shava.png'
-                        }
+                        src={productImageSrc(product.image_url)}
                         rounded={{ base: '32px 32px 0 0', sm: '42px 42px 0 0' }}
                         width={{ base: '80%', sm: '70%', md: '52%', lg: '40%' }}
                         maxW="360px"

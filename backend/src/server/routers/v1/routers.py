@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from src.server.routers.v1 import (
     basket_router,
     category_router,
+    media_router,
     order_router,
     product_router,
     rental_router,
@@ -16,3 +17,4 @@ api_v1_router.include_router(rental_router.router)
 api_v1_router.include_router(basket_router.router)
 api_v1_router.include_router(order_router.router)
 api_v1_router.include_router(user_router.router)
+api_v1_router.include_router(media_router.router)

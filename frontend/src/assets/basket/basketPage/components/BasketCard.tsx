@@ -1,4 +1,5 @@
 ﻿import { Text, Flex, Image, Heading, Center } from '@chakra-ui/react'
+import { productImageSrc } from '@/utils/image'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useBasketContext, ProductWithQuantity } from '@/contexts/BasketContext'
 import CustomNumberInput from '@/assets/product/components/CustomNumberInput'
@@ -182,7 +183,7 @@ export default function BasketCard({ price }: CardProps) {
             >
                 {price.image_url && (
                     <Image
-                        src={`products/${price.image_url}`}
+                        src={productImageSrc(price.image_url)}
                         h="full"
                         minW="122px"
                         marginRight="20px"

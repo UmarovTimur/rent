@@ -2,6 +2,10 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tsconfigPaths from 'vite-tsconfig-paths'
 
+// Inside Docker the backend is reachable via its service name.
+// Outside Docker (plain `npm run dev`) it's on localhost.
+const backendTarget = process.env.BACKEND_INTERNAL_URL ?? 'http://localhost:8000'
+
 export default defineConfig({
     plugins: [react(), tsconfigPaths()],
     server: {
@@ -9,15 +13,15 @@ export default defineConfig({
         port: 5174,
         proxy: {
             '/api': {
-                target: 'http://localhost:8000',
+                target: backendTarget,
                 changeOrigin: true,
             },
             '/media': {
-                target: 'http://localhost:8000',
+                target: backendTarget,
                 changeOrigin: true,
             },
             '/admin': {
-                target: 'http://localhost:8000',
+                target: backendTarget,
                 changeOrigin: true,
             },
         },
