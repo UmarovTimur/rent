@@ -22,13 +22,16 @@ class OrderAdmin(ModelView, model=Order):
 
 
 class OrderItemAdmin(ModelView, model=OrderItem):
+    # Ordered so staff fulfilling rentals see, left to right: who, what, how many,
+    # and when to hand it over / take it back — sorted by pickup time by default.
     column_list = [
         OrderItem.order_item_id,
-        OrderItem.order_id,
-        OrderItem.product_id,
-        OrderItem.unit_price,
+        OrderItem.order,
+        OrderItem.product,
         OrderItem.quantity,
         OrderItem.rental_start,
         OrderItem.rental_end,
+        OrderItem.unit_price,
     ]
+    column_default_sort = [(OrderItem.rental_start, False)]
     name_plural = "Order Items"

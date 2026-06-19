@@ -28,7 +28,8 @@ class Order(Base):
     basket: Mapped["Basket"] = relationship("Basket", back_populates="orders")  # noqa: F821
 
     def __str__(self) -> str:
-        return f"Order #{self.order_id}"
+        customer = self.first_name or self.phone or "—"
+        return f"Order #{self.order_id} ({customer})"
 
     __repr__ = __str__
 

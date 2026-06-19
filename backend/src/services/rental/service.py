@@ -27,6 +27,29 @@ class _ReservationInterval:
     quantity: int
 
 
+@dataclass(slots=True)
+class _WindowAvailability:
+    slot_start: datetime
+    slot_end: datetime
+    effective_capacity: int
+    manual_reserved_quantity: int
+    blocked_quantity: int
+    order_reserved_quantity: int
+    is_closed: bool
+
+    @property
+    def available_quantity(self) -> int:
+        if self.is_closed:
+            return 0
+        return max(
+            0,
+            self.effective_capacity
+            - self.manual_reserved_quantity
+            - self.blocked_quantity
+            - self.order_reserved_quantity,
+        )
+
+
 class RentalService(BaseService, RentalServiceI):
     def __init__(self, session: Callable[..., AsyncSession]) -> None:
         super().__init__(session)
@@ -42,42 +65,12 @@ class RentalService(BaseService, RentalServiceI):
 
         async with self.session() as session:
             rental = await self._get_product_rental(session, product_id)
-            manual_slots = await self._get_manual_slots(session, rental.rental_id, date_from, date_to)
-            order_intervals = await self._get_order_reservations(session, product_id, date_from, date_to)
 
             slot_size = slot_minutes or rental.slot_duration_minutes
             if slot_size <= 0:
                 raise InvalidRentalPeriodError("slot_minutes must be positive")
 
-            slots = []
-            for slot_start, slot_end in self._iter_slots(date_from, date_to, slot_size):
-                manual_state = self._manual_state_for_window(manual_slots, slot_start, slot_end, rental.total_quantity)
-                order_reserved = self._peak_reserved_quantity(order_intervals, slot_start, slot_end)
-
-                if manual_state["is_closed"]:
-                    available = 0
-                else:
-                    available = max(
-                        0,
-                        manual_state["effective_capacity"]
-                        - manual_state["manual_reserved_quantity"]
-                        - manual_state["blocked_quantity"]
-                        - order_reserved,
-                    )
-
-                slots.append(
-                    ProductRentalCalendarSlot(
-                        slot_start=slot_start,
-                        slot_end=slot_end,
-                        effective_capacity=manual_state["effective_capacity"],
-                        order_reserved_quantity=order_reserved,
-                        manual_reserved_quantity=manual_state["manual_reserved_quantity"],
-                        blocked_quantity=manual_state["blocked_quantity"],
-                        available_quantity=available,
-                        is_closed=manual_state["is_closed"],
-                        is_available=available > 0,
-                    )
-                )
+            windows = await self._compute_windows(session, rental, date_from, date_to, slot_size)
 
             return ProductRentalCalendarResponse(
                 product_id=product_id,
@@ -86,7 +79,20 @@ class RentalService(BaseService, RentalServiceI):
                 slot_duration_minutes=rental.slot_duration_minutes,
                 range_start=date_from,
                 range_end=date_to,
-                slots=slots,
+                slots=[
+                    ProductRentalCalendarSlot(
+                        slot_start=window.slot_start,
+                        slot_end=window.slot_end,
+                        effective_capacity=window.effective_capacity,
+                        order_reserved_quantity=window.order_reserved_quantity,
+                        manual_reserved_quantity=window.manual_reserved_quantity,
+                        blocked_quantity=window.blocked_quantity,
+                        available_quantity=window.available_quantity,
+                        is_closed=window.is_closed,
+                        is_available=window.available_quantity > 0,
+                    )
+                    for window in windows
+                ],
             )
 
     async def ensure_product_available(
@@ -114,25 +120,42 @@ class RentalService(BaseService, RentalServiceI):
             raise InvalidRentalPeriodError("Rental dates are required for rentable product")
         self._validate_period(rental_start, rental_end)
 
-        manual_slots = await self._get_manual_slots(session, rental.rental_id, rental_start, rental_end)
-        order_intervals = await self._get_order_reservations(session, product_id, rental_start, rental_end)
-
-        for slot_start, slot_end in self._iter_slots(rental_start, rental_end, rental.slot_duration_minutes):
-            manual_state = self._manual_state_for_window(manual_slots, slot_start, slot_end, rental.total_quantity)
-            if manual_state["is_closed"]:
+        windows = await self._compute_windows(session, rental, rental_start, rental_end, rental.slot_duration_minutes)
+        for window in windows:
+            if window.is_closed:
                 raise RentalUnavailableError("Rental slot is closed")
-
-            order_reserved = self._peak_reserved_quantity(order_intervals, slot_start, slot_end)
-            available = (
-                manual_state["effective_capacity"]
-                - manual_state["manual_reserved_quantity"]
-                - manual_state["blocked_quantity"]
-                - order_reserved
-            )
-            if available < quantity:
+            if window.available_quantity < quantity:
                 raise RentalUnavailableError(
-                    f"Not enough quantity for rental window {slot_start.isoformat()} - {slot_end.isoformat()}"
+                    f"Not enough quantity for rental window {window.slot_start.isoformat()} - {window.slot_end.isoformat()}"
                 )
+
+    async def _compute_windows(
+        self,
+        session: AsyncSession,
+        rental: ProductRental,
+        date_from: datetime,
+        date_to: datetime,
+        slot_minutes: int,
+    ) -> list[_WindowAvailability]:
+        """Single source of truth for slot availability, shared by the calendar view and the booking check."""
+        manual_slots = await self._get_manual_slots(session, rental.rental_id, date_from, date_to)
+        order_intervals = await self._get_order_reservations(session, rental.product_id, date_from, date_to)
+
+        windows = []
+        for slot_start, slot_end in self._iter_slots(date_from, date_to, slot_minutes):
+            manual_state = self._manual_state_for_window(manual_slots, slot_start, slot_end, rental.total_quantity)
+            windows.append(
+                _WindowAvailability(
+                    slot_start=slot_start,
+                    slot_end=slot_end,
+                    effective_capacity=manual_state["effective_capacity"],
+                    manual_reserved_quantity=manual_state["manual_reserved_quantity"],
+                    blocked_quantity=manual_state["blocked_quantity"],
+                    order_reserved_quantity=self._peak_reserved_quantity(order_intervals, slot_start, slot_end),
+                    is_closed=manual_state["is_closed"],
+                )
+            )
+        return windows
 
     async def _get_product_rental(
         self,
