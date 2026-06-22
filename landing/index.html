@@ -20,7 +20,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800;900&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet" />
 
-<link rel="stylesheet" href="css/style.css" />
+<link rel="stylesheet" href="css/style.css?v=3" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/viewerjs@1.11.6/dist/viewer.min.css" />
 
 <script type="application/ld+json">
 {
@@ -140,9 +141,10 @@
 
     <div class="hero__media reveal">
       <figure class="ticket-photo">
-        <img src="images/catalog-flatlay.jpg" width="900" height="1200" loading="eager"
+        <img src="images/catalog-flatlay.jpg" width="640" height="640" loading="eager"
              alt="Весь каталог туристического снаряжения для аренды: палатка, рюкзак, спальный мешок, посуда и фонарь на фоне гор" />
-        <span class="ticket-photo__tag">
+        <!-- временно скрыто по просьбе — убрать атрибут hidden, чтобы вернуть бирку -->
+        <span class="ticket-photo__tag" hidden>
           <span class="ticket-photo__tag-amount">15 000</span>
           <span class="ticket-photo__tag-unit">сум / сутки от</span>
         </span>
@@ -155,7 +157,7 @@
     <div class="wrap">
       <p class="eyebrow eyebrow--center">Куда едут с нашим снаряжением</p>
     </div>
-    <p class="locations__row">Чимган&nbsp;· Бельдерсай&nbsp;· Чарвак&nbsp;· Чаткальский хребет&nbsp;· Бичанак</p>
+    <p class="locations__row">Чимган&nbsp;· Бельдерсай&nbsp;· Чарвак<br />Чаткальский хребет&nbsp;· Бичанак</p>
     <div class="wrap">
       <p class="locations__note">
         Едете в горы под Ташкентом на выходные — снаряжение можно забрать в день выезда и вернуть сразу после похода.
@@ -198,6 +200,15 @@
       Актуальные остатки уточняем в Telegram перед бронью.
     </p>
 
+    <figure class="price-poster">
+      <div class="price-poster__trigger">
+        <img id="price-poster-img" src="images/full-price-list.jpg" width="1024" height="1536" loading="lazy"
+             alt="Полный прайс-лист аренды туристического снаряжения одним изображением" />
+        <span class="price-poster__hint">Открыть целиком&nbsp;⤢</span>
+      </div>
+      <figcaption>Тот же прайс-лист одной картинкой — если так удобнее листать</figcaption>
+    </figure>
+
     <h3 class="catalog__group-title">Палатки</h3>
     <div class="spotlight-grid">
       <article class="spotlight-card">
@@ -226,7 +237,8 @@
       </article>
     </div>
 
-    <div class="category-grid">
+    <!-- временно скрыто по просьбе — убрать атрибут hidden, чтобы вернуть категории -->
+    <div class="category-grid" hidden>
 
       <article class="category-card">
         <h3 class="category-card__title">Сон и комфорт</h3>
@@ -421,6 +433,7 @@
   </div>
 </footer>
 
-<script src="js/main.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/viewerjs@1.11.6/dist/viewer.min.js" defer></script>
+<script src="js/main.js?v=3" defer></script>
 </body>
 </html>

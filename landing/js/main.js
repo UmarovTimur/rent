@@ -55,6 +55,32 @@ function setFooterYear() {
   if (el) el.textContent = new Date().getFullYear();
 }
 
+function setupPriceZoom() {
+  const img = document.getElementById('price-poster-img');
+  if (!img || typeof Viewer === 'undefined') return;
+
+  // eslint-disable-next-line no-new
+  new Viewer(img, {
+    inline: false,
+    navbar: false,
+    title: false,
+    toolbar: {
+      zoomIn: 1,
+      zoomOut: 1,
+      oneToOne: 1,
+      reset: 1,
+      prev: 0,
+      play: 0,
+      next: 0,
+      rotateLeft: 0,
+      rotateRight: 0,
+      flipHorizontal: 0,
+      flipVertical: 0,
+    },
+  });
+}
+
 applyContacts();
 setupScrollReveal();
 setFooterYear();
+setupPriceZoom();

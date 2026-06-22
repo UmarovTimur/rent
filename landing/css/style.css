@@ -37,6 +37,7 @@ body {
   font-weight: 500;
   line-height: 1.45;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
 
 img { max-width: 100%; display: block; }
@@ -180,6 +181,10 @@ h1, h2, h3, h4 {
   .site-nav { display: none; }
 }
 
+@media (max-width: 600px) {
+  .brand__word { display: none; }
+}
+
 /* ---------- hero ---------- */
 .hero {
   display: grid;
@@ -222,7 +227,7 @@ h1, h2, h3, h4 {
 }
 .ticket-photo img {
   width: 100%;
-  aspect-ratio: 3 / 4;
+  aspect-ratio: 1 / 1;
   object-fit: cover;
   border-radius: var(--radius);
 }
@@ -283,7 +288,7 @@ h1, h2, h3, h4 {
   font-size: clamp(1.4rem, 4.4vw, 2.6rem);
   text-align: center;
   margin: 0 0 14px;
-  padding: 0 16px;
+  padding: 0 24px;
 }
 .locations__note {
   text-align: center;
@@ -338,6 +343,42 @@ h1, h2, h3, h4 {
 .catalog__group-title {
   margin-top: 40px;
   font-size: 1.3rem;
+}
+
+.price-poster {
+  margin: 28px 0 8px;
+  max-width: 200px;
+}
+.price-poster__trigger {
+  position: relative;
+  display: block;
+  width: 100%;
+  cursor: zoom-in;
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.price-poster__trigger img {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  border-radius: var(--radius);
+}
+.price-poster__hint {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  background: var(--color-accent);
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 0.72rem;
+  padding: 5px 9px;
+  border-radius: 999px;
+}
+.price-poster figcaption {
+  margin-top: 10px;
+  font-size: 0.85rem;
+  color: var(--color-ink-soft);
 }
 
 .spotlight-grid {
