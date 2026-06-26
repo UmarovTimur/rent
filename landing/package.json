@@ -1,0 +1,11 @@
+{
+  "name": "shawabear-landing",
+  "private": true,
+  "scripts": {
+    "build:css": "sass css/style.scss css/style.css --style=expanded --no-source-map",
+    "watch:css": "sass --watch css/style.scss:css/style.css --style=expanded --no-source-map"
+  },
+  "devDependencies": {
+    "sass": "^1.99.0"
+  }
+}
