@@ -7,6 +7,8 @@ type ConfirmationDialogProps = {
     onConfirm: () => void
     title: string
     message: ReactNode
+    confirmLabel?: string
+    confirmColor?: string
 }
 
 export default function ConfirmationDialog({
@@ -15,6 +17,8 @@ export default function ConfirmationDialog({
     onConfirm,
     title,
     message,
+    confirmLabel = 'Удалить',
+    confirmColor = 'red.500',
 }: ConfirmationDialogProps) {
     return (
         <Dialog.Root open={isOpen} onOpenChange={onClose} placement="center">
@@ -69,15 +73,14 @@ export default function ConfirmationDialog({
                                     onConfirm()
                                     onClose()
                                 }}
-                                bg="red.500"
+                                bg={confirmColor}
                                 h="48px"
                                 rounded="full"
                                 color="white"
                                 fontWeight="700"
                                 fontSize="md"
-                                _hover={{ bg: 'red.600' }}
                             >
-                                Удалить
+                                {confirmLabel}
                             </Button>
                         </Flex>
                     </Dialog.Footer>

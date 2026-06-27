@@ -6,16 +6,23 @@ from src.clients.database.models.order import Order, OrderItem
 class OrderAdmin(ModelView, model=Order):
     column_list = [
         Order.order_id,
-        Order.user_id,
-        Order.basket_id,
-        Order.order_date,
-        Order.total_price,
-        Order.payment_option,
-        Order.comment,
         Order.status,
         Order.first_name,
-        Order.address,
         Order.phone,
+        Order.address,
+        Order.total_price,
+        Order.payment_option,
+        Order.order_date,
+        Order.comment,
+    ]
+    column_editable_list = [Order.status]
+    form_columns = [
+        Order.status,
+        Order.first_name,
+        Order.phone,
+        Order.address,
+        Order.payment_option,
+        Order.comment,
         Order.discount,
     ]
     name_plural = "Orders"

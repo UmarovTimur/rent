@@ -7,6 +7,7 @@ on:
       - main
     paths:
       - frontend/**
+      - landing/**
       - backend/**
       - bot/**
       - deploy/backend/**
@@ -68,7 +69,8 @@ jobs:
       - name: Build and push frontend image
         uses: docker/build-push-action@v6
         with:
-          context: frontend
+          context: .
+          file: frontend/Dockerfile
           push: true
           build-args: |
             VITE_API_BASE_URL=${{ secrets.FRONTEND_VITE_API_BASE_URL != '' && secrets.FRONTEND_VITE_API_BASE_URL || '/' }}

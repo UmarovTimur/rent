@@ -169,6 +169,36 @@ h1, h2, h3, h4 {
   justify-content: center;
 }
 
+.lang-switcher {
+  display: flex;
+  gap: 2px;
+}
+
+.lang-btn {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  opacity: 0.45;
+  padding: 5px 7px;
+  border-radius: 5px;
+  transition: opacity 0.15s, background 0.15s;
+}
+.lang-btn:hover {
+  opacity: 0.85;
+}
+.lang-btn.is-active {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.14);
+}
+.is-scrolled .lang-btn.is-active {
+  background: var(--color-card);
+}
+
 .site-header {
   position: fixed;
   top: 0;

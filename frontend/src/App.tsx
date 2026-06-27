@@ -1,4 +1,4 @@
-import { ChakraProvider, Alert, Spinner, Center } from '@chakra-ui/react'
+import { ChakraProvider, Alert, Spinner, Center, Box } from '@chakra-ui/react'
 import { useState, useEffect } from 'react'
 import { system } from './theme.ts'
 import Header from '@/assets/header/Header.tsx'
@@ -12,6 +12,8 @@ import { OrderProvider } from '@/contexts/OrderContext'
 import { Toaster } from '@/components/ui/toaster'
 import { UserProvider } from '@/contexts/UserContext.tsx'
 import { TripDatesProvider } from '@/contexts/TripDatesContext.tsx'
+import PhoneAuthScreen from '@/assets/auth/PhoneAuthScreen.tsx'
+import { AuthService } from '@/api/AuthService'
 
 declare global {
     interface Window {
@@ -33,6 +35,7 @@ export default function App() {
     const [searchQuery, setSearchQuery] = useState('')
     const [confirmActive, setConfirmActive] = useState<boolean>(false)
     const [userId, setUserId] = useState<number | null>(null)
+    const [needAuth, setNeedAuth] = useState(false)
 
     useEffect(() => {
         if (categories.length > 0) setActiveCategory(categories[0].name)
@@ -43,17 +46,23 @@ export default function App() {
     }, [])
 
     useEffect(() => {
-        if (window.Telegram && window.Telegram.WebApp) {
+        if (window.Telegram?.WebApp) {
             window.Telegram.WebApp.ready()
-
-            const uid = window?.Telegram?.WebApp?.initDataUnsafe?.user?.id
-            if (uid) {
-                setUserId(uid);
-            } else {
-                setUserId(543964377);
-            }
-
         }
+
+        const telegramId = window?.Telegram?.WebApp?.initDataUnsafe?.user?.id
+        if (telegramId) {
+            setUserId(telegramId)
+            return
+        }
+
+        const stored = AuthService.getStoredUserId()
+        if (stored) {
+            setUserId(stored)
+            return
+        }
+
+        setNeedAuth(true)
     }, [])
 
     if (error) {
@@ -62,6 +71,14 @@ export default function App() {
                 <Alert.Indicator />
                 <Alert.Title>{error}</Alert.Title>
             </Alert.Root>
+        )
+    }
+
+    if (needAuth) {
+        return (
+            <ChakraProvider value={system}>
+                <PhoneAuthScreen onAuth={(id) => { setUserId(id); setNeedAuth(false) }} />
+            </ChakraProvider>
         )
     }
 
@@ -79,36 +96,38 @@ export default function App() {
                 <TripDatesProvider>
                     <BasketProvider userId={userId}>
                         <ChakraProvider value={system}>
-                            <Header
-                                categories={categories.map((c) => c.name)}
-                                activeCategory={activeCategory}
-                                setActiveCategory={setActiveCategory}
-                                searchQuery={searchQuery}
-                                setSearchQuery={setSearchQuery}
-                            />
-
-                            <MainList
-                                categories={categories.map((c) => c.name)}
-                                activeCategory={activeCategory}
-                                setActiveCategory={setActiveCategory}
-                                searchQuery={searchQuery}
-                            />
-
-                            <MotionDrawer
-                                trigger={
-                                    <BasketButton
-                                        openBasketPage={() =>
-                                            setConfirmActive(false)
-                                        }
-                                    />
-                                }
-                            >
-                                <BasketDrawerContent
-                                    confirmActive={confirmActive}
-                                    handleBack={() => setConfirmActive(false)}
-                                    handleConfirm={() => setConfirmActive(true)}
+                            <Box maxW="1320px" mx="auto">
+                                <Header
+                                    categories={categories.map((c) => c.name)}
+                                    activeCategory={activeCategory}
+                                    setActiveCategory={setActiveCategory}
+                                    searchQuery={searchQuery}
+                                    setSearchQuery={setSearchQuery}
                                 />
-                            </MotionDrawer>
+
+                                <MainList
+                                    categories={categories.map((c) => c.name)}
+                                    activeCategory={activeCategory}
+                                    setActiveCategory={setActiveCategory}
+                                    searchQuery={searchQuery}
+                                />
+
+                                <MotionDrawer
+                                    trigger={
+                                        <BasketButton
+                                            openBasketPage={() =>
+                                                setConfirmActive(false)
+                                            }
+                                        />
+                                    }
+                                >
+                                    <BasketDrawerContent
+                                        confirmActive={confirmActive}
+                                        handleBack={() => setConfirmActive(false)}
+                                        handleConfirm={() => setConfirmActive(true)}
+                                    />
+                                </MotionDrawer>
+                            </Box>
 
                             <Toaster />
                         </ChakraProvider>

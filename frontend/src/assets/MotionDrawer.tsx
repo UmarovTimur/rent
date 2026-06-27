@@ -8,6 +8,7 @@ import React, {
 } from 'react'
 import { Drawer, Portal, Box } from '@chakra-ui/react'
 import { DrawerContext } from '@/contexts/DrawerContext'
+import { useIsDesktop } from '@/hooks/useIsDesktop'
 
 type MotionDrawerProps = {
     trigger: ReactElement<{ onClick?: React.MouseEventHandler }>
@@ -27,10 +28,10 @@ export default function MotionDrawer({
     const [drawerHeight, setDrawerHeight] = useState(0)
     const [startTime, setStartTime] = useState(0)
     const [velocity, setVelocity] = useState(0)
-    const [potentialDrag, setPotentialDrag] = useState(false) // Новое состояние
+    const [potentialDrag, setPotentialDrag] = useState(false)
 
+    const isDesktop = useIsDesktop()
     const contentRef = useRef<HTMLDivElement>(null)
-
     const isDraggingRef = useRef(isDragging)
     const potentialDragRef = useRef(potentialDrag)
 
@@ -46,27 +47,26 @@ export default function MotionDrawer({
 
     const handleTouchStart = useCallback(
         (e: React.TouchEvent<HTMLDivElement>) => {
+            if (isDesktop) return
             if (contentRef.current && contentRef.current.scrollTop === 0) {
                 setPotentialDrag(true)
                 const touch = e.touches[0]
                 setStartY(touch.clientY)
                 setStartTime(Date.now())
-
                 const rect = contentRef.current.getBoundingClientRect()
                 setDrawerHeight(rect.height)
             }
         },
-        []
+        [isDesktop]
     )
 
     const handleTouchMove = useCallback(
         (e: TouchEvent) => {
-            if (!e.touches[0]) return
+            if (isDesktop || !e.touches[0]) return
             const touch = e.touches[0]
 
             if (potentialDragRef.current && !isDraggingRef.current) {
                 const deltaY = touch.clientY - startY
-
                 if (deltaY > 5) {
                     setIsDragging(true)
                     setPotentialDrag(false)
@@ -84,46 +84,91 @@ export default function MotionDrawer({
                 e.preventDefault()
             }
         },
-        [startY]
+        [startY, isDesktop]
     )
 
     const handleTouchEnd = useCallback(() => {
+        if (isDesktop) return
         if (isDraggingRef.current) {
             const endTime = Date.now()
             const duration = endTime - startTime
             const newVelocity = offset / (duration || 1)
             setVelocity(newVelocity)
-
             const shouldClose = offset > drawerHeight / 2 || newVelocity > 0.5
             if (shouldClose) setDrawerOpen(false)
         }
-
         setIsDragging(false)
         setPotentialDrag(false)
         setOffset(0)
-    }, [offset, drawerHeight, startTime, setDrawerOpen])
+    }, [offset, drawerHeight, startTime, setDrawerOpen, isDesktop])
 
     useEffect(() => {
-        document.addEventListener('touchmove', handleTouchMove, {
-            passive: false,
-        })
+        if (isDesktop) return
+        document.addEventListener('touchmove', handleTouchMove, { passive: false })
         document.addEventListener('touchend', handleTouchEnd)
         document.addEventListener('touchcancel', handleTouchEnd)
-
         return () => {
             document.removeEventListener('touchmove', handleTouchMove)
             document.removeEventListener('touchend', handleTouchEnd)
             document.removeEventListener('touchcancel', handleTouchEnd)
         }
-    }, [handleTouchMove, handleTouchEnd])
+    }, [handleTouchMove, handleTouchEnd, isDesktop])
 
-    const dragProgress =
-        drawerHeight > 0 ? Math.min(Math.max(offset / drawerHeight, 0), 1) : 0
+    const dragProgress = drawerHeight > 0 ? Math.min(Math.max(offset / drawerHeight, 0), 1) : 0
     const backdropOpacity = 1 - dragProgress
+
+    if (isDesktop) {
+        return (
+            <DrawerContext.Provider value={{ onClose: () => setDrawerOpen(false) }}>
+                <Drawer.Root placement="end" open={isOpen} onOpenChange={(e) => { if (!e.open) setDrawerOpen(false) }}>
+                    <Drawer.Trigger asChild>
+                        {cloneElement(trigger, {
+                            onClick: (e: React.MouseEvent) => {
+                                trigger.props.onClick?.(e)
+                                setDrawerOpen(true)
+                            },
+                        })}
+                    </Drawer.Trigger>
+
+                    <Portal>
+                        <Drawer.Backdrop
+                            bg="back/80"
+                            backdropFilter="blur(8px)"
+                        />
+                        <Drawer.Positioner padding="gap">
+                            <Drawer.Content
+                                ref={contentRef}
+                                w="460px"
+                                maxW="460px"
+                                h="100%"
+                                rounded="42px"
+                                bg="card"
+                                shadow="none"
+                                display="flex"
+                                flexDirection="column"
+                            >
+                                <div
+                                    style={{
+                                        flex: 1,
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        borderRadius: '42px',
+                                        overflow: 'hidden',
+                                    }}
+                                >
+                                    {children}
+                                </div>
+                            </Drawer.Content>
+                        </Drawer.Positioner>
+                    </Portal>
+                </Drawer.Root>
+            </DrawerContext.Provider>
+        )
+    }
 
     return (
         <DrawerContext.Provider value={{ onClose: () => setDrawerOpen(false) }}>
-            <Drawer.Root placement="bottom" open={isOpen}>
+            <Drawer.Root placement="bottom" open={isOpen} onOpenChange={(e) => { if (!e.open) setDrawerOpen(false) }}>
                 <Drawer.Trigger asChild>
                     {cloneElement(trigger, {
                         onClick: (e: React.MouseEvent) => {

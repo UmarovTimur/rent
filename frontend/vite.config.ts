@@ -3,10 +3,11 @@ import react from '@vitejs/plugin-react'
 import tsconfigPaths from 'vite-tsconfig-paths'
 
 export default defineConfig({
+    base: '/app/',
     plugins: [react(), tsconfigPaths()],
     server: {
         host: '0.0.0.0',
-        port: 5174,
+        port: 5173,
         proxy: {
             '/api': {
                 target: 'http://localhost:8000',
@@ -21,8 +22,6 @@ export default defineConfig({
                 changeOrigin: true,
             },
         },
-        allowedHosts: [
-            'clustery-darell-uncopious.ngrok-free.dev'
-        ]
+        allowedHosts: true
     },
 })

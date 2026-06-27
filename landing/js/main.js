@@ -99,20 +99,61 @@ function setupPriceZoom() {
   });
 }
 
+// ---------- i18n ----------
+
+function applyTranslations() {
+  const year = new Date().getFullYear();
+  document.querySelectorAll('[data-i18n]').forEach((el) => {
+    el.textContent = i18next.t(el.dataset.i18n, { year });
+  });
+  document.querySelectorAll('[data-i18n-html]').forEach((el) => {
+    el.innerHTML = i18next.t(el.dataset.i18nHtml, { year });
+  });
+  document.querySelectorAll('.lang-btn').forEach((btn) => {
+    btn.classList.toggle('is-active', btn.dataset.lang === i18next.language);
+  });
+  document.documentElement.lang = i18next.language;
+}
+
+function setupI18n() {
+  if (typeof i18next === 'undefined' || typeof window.i18nResources === 'undefined') return;
+
+  const savedLang = localStorage.getItem('lang') || 'ru';
+
+  i18next.init({
+    lng: savedLang,
+    fallbackLng: 'ru',
+    resources: window.i18nResources,
+    interpolation: { escapeValue: false },
+  }, () => {
+    applyTranslations();
+  });
+
+  document.querySelectorAll('.lang-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const lang = btn.dataset.lang;
+      localStorage.setItem('lang', lang);
+      i18next.changeLanguage(lang, applyTranslations);
+    });
+  });
+}
+
+// ---------- share ----------
+
 async function copyPriceListLink(button, url) {
   const label = button.querySelector('.price-poster__share-label');
-  const originalText = label ? label.textContent : null;
+  const originalText = label ? label.dataset.i18n : null;
 
   try {
     await navigator.clipboard.writeText(url);
-    if (label) label.textContent = 'Ссылка скопирована';
+    if (label) label.textContent = i18next.t('catalog.share_copied');
   } catch {
     window.open(url, '_blank', 'noopener');
     return;
   }
 
   setTimeout(() => {
-    if (label && originalText) label.textContent = originalText;
+    if (label && originalText) label.textContent = i18next.t(originalText);
   }, 2000);
 }
 
@@ -159,3 +200,4 @@ setupHeaderScrollState();
 setFooterYear();
 setupPriceZoom();
 setupPriceShare();
+setupI18n();

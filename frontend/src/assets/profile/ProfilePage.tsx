@@ -7,10 +7,12 @@
     Flex,
     Text,
     Spinner,
+    Button,
 } from '@chakra-ui/react'
 import { IoClose } from 'react-icons/io5'
 import { useDrawer } from '@/contexts/DrawerContext'
-import { RiUser3Line } from 'react-icons/ri'
+import { RiUser3Line, RiLogoutBoxLine } from 'react-icons/ri'
+import { AuthService } from '@/api/AuthService'
 import { useUserContext } from '@/contexts/UserContext'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
@@ -18,6 +20,9 @@ import { ProductService } from '@/api/ProductService'
 import { useEffect, useMemo, useState } from 'react'
 import { Product } from '@/types/Products.ts'
 import { formatPriceK } from '@/utils/price'
+import axios from 'axios'
+import API_BASE_URL from '@/config'
+import ConfirmationDialog from '@/assets/basket/basketPage/components/ConfirmationDialog'
 
 const cisDateFormatter = new Intl.DateTimeFormat('ru-RU', {
     day: '2-digit',
@@ -38,6 +43,12 @@ export default function ProfilePage() {
     const { user, orderHistory, loading } = useUserContext()
     const [products, setProducts] = useState<Product[]>([])
     const [productsLoading, setProductsLoading] = useState(true)
+    const isWebUser = Boolean(localStorage.getItem('auth_token'))
+
+    const handleLogout = () => {
+        AuthService.clearSession()
+        window.location.reload()
+    }
 
     const formatOrderDate = (dateString: string) => {
         try {
@@ -87,6 +98,24 @@ export default function ProfilePage() {
         products.forEach((product) => map.set(product.product_id, product))
         return map
     }, [products])
+
+    const [cancellingOrderId, setCancellingOrderId] = useState<number | null>(null)
+    const [confirmCancelOrderId, setConfirmCancelOrderId] = useState<number | null>(null)
+    const { refreshOrderHistory } = useUserContext()
+
+    const handleCancelOrder = async (orderId: number) => {
+        setCancellingOrderId(orderId)
+        try {
+            await axios.patch(`${API_BASE_URL}api/v1/order/change_status/${orderId}?status=canceled`)
+            await refreshOrderHistory()
+        } catch (err) {
+            console.error('Failed to cancel order:', err)
+        } finally {
+            setCancellingOrderId(null)
+        }
+    }
+
+    const CANCELLABLE_STATUSES = ['created', 'in_progress']
 
     const isLoading = loading || productsLoading
     if (isLoading) {
@@ -181,27 +210,31 @@ export default function ProfilePage() {
                                         {order.address || ''}
                                     </Text>
 
-                                    <Flex direction="column">
+                                    {(() => {
+                                        const firstItemWithDates = order.items.find(
+                                            (i) => i.rental_start && i.rental_end
+                                        )
+                                        const period = formatRentalRange(
+                                            firstItemWithDates?.rental_start,
+                                            firstItemWithDates?.rental_end
+                                        )
+                                        return period ? (
+                                            <Text fontSize="sm" opacity="0.7">
+                                                Период: {period}
+                                            </Text>
+                                        ) : null
+                                    })()}
+
+                                    <Flex direction="column" gap="4px">
                                         {order.items.map((item) => {
                                             const productInfo = productMap.get(item.product_id)
-                                            const rentalPeriod = formatRentalRange(
-                                                item.rental_start,
-                                                item.rental_end
-                                            )
                                             return (
-                                                <Flex key={item.order_item_id} direction="column">
-                                                    <Text fontWeight="500">
-                                                        {item.quantity} Г—{' '}
-                                                        {productInfo
-                                                            ? `${productInfo.name} - ${formatPriceK(item.unit_price * item.quantity)}`
-                                                            : `Товар #${item.product_id}`}
-                                                    </Text>
-                                                    {rentalPeriod && (
-                                                        <Text fontSize="xs" opacity="0.7">
-                                                            Период: {rentalPeriod}
-                                                        </Text>
-                                                    )}
-                                                </Flex>
+                                                <Text key={item.order_item_id} fontWeight="500">
+                                                    {item.quantity} ×{' '}
+                                                    {productInfo
+                                                        ? `${productInfo.name} - ${formatPriceK(item.unit_price * item.quantity)}`
+                                                        : `Товар #${item.product_id}`}
+                                                </Text>
                                             )
                                         })}
                                     </Flex>
@@ -213,10 +246,56 @@ export default function ProfilePage() {
                                     <Text fontWeight="500">
                                         Итоговая сумма: {formatPriceK(order.total_price)}
                                     </Text>
+
+                                    {CANCELLABLE_STATUSES.includes(order.status) && (
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            borderWidth="2px"
+                                            borderColor="red.500"
+                                            color="red.500"
+                                            rounded="full"
+                                            fontWeight="600"
+                                            loading={cancellingOrderId === order.order_id}
+                                            onClick={() => setConfirmCancelOrderId(order.order_id)}
+                                        >
+                                            Отменить заказ
+                                        </Button>
+                                    )}
                                 </Flex>
                             ))
                     )}
                 </Flex>
+
+                <ConfirmationDialog
+                    isOpen={confirmCancelOrderId !== null}
+                    onClose={() => setConfirmCancelOrderId(null)}
+                    onConfirm={() => {
+                        if (confirmCancelOrderId !== null) handleCancelOrder(confirmCancelOrderId)
+                    }}
+                    title="Отменить заказ?"
+                    message="Вы уверены, что хотите отменить этот заказ? Это действие нельзя отменить."
+                    confirmLabel="Да, отменить"
+                />
+
+                {isWebUser && (
+                    <Button
+                        mt="24px"
+                        w="full"
+                        size="lg"
+                        borderRadius="18px"
+                        variant="outline"
+                        borderWidth="2px"
+                        borderColor="gray"
+                        color="red.500"
+                        fontWeight="700"
+                        gap="8px"
+                        onClick={handleLogout}
+                    >
+                        <Icon as={RiLogoutBoxLine} boxSize="20px" />
+                        Выйти из аккаунта
+                    </Button>
+                )}
             </Drawer.Body>
         </>
     )

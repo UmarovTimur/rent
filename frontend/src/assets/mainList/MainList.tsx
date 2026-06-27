@@ -11,6 +11,7 @@ import { RentalService } from '@/api/RentalService'
 import { useTripDates } from '@/contexts/TripDatesContext'
 import { Product } from '@/types/Products'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
+import { useIsDesktop } from '@/hooks/useIsDesktop'
 
 type MainListProps = {
     categories: string[]
@@ -35,12 +36,25 @@ type VirtualizedProductCardProps = {
 
 function VirtualizedProductCard({ product }: VirtualizedProductCardProps) {
     const [isDrawerOpen, setIsDrawerOpen] = useState(false)
+    const isDesktop = useIsDesktop()
     const { ref, inView } = useInView({
         threshold: 0,
         rootMargin: `${OVERSCAN_PX}px 0px ${OVERSCAN_PX}px 0px`,
+        skip: isDesktop,
     })
 
-    const shouldRenderCard = inView || isDrawerOpen
+    const shouldRenderCard = isDesktop || inView || isDrawerOpen
+
+    if (isDesktop) {
+        return (
+            <MotionDrawer
+                trigger={<Card product={product} />}
+                onOpenChange={setIsDrawerOpen}
+            >
+                <ProductPage product={product} />
+            </MotionDrawer>
+        )
+    }
 
     return (
         <Box ref={ref} h={`${CARD_HEIGHT_PX}px`} w="full">
@@ -256,11 +270,18 @@ export default function MainList({
             {loading ? (
                 <>
                     <Skeleton h="32px" rounded="26px" />
-                    {Array(6)
-                        .fill(0)
-                        .map((_, i) => (
-                            <Skeleton key={i} h="140px" rounded="26px" />
-                        ))}
+                    <Box
+                        display={{ base: 'flex', md: 'grid' }}
+                        flexDirection="column"
+                        gridTemplateColumns={{ md: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)', xl: 'repeat(4, 1fr)' }}
+                        gap="gap"
+                    >
+                        {Array(6)
+                            .fill(0)
+                            .map((_, i) => (
+                                <Skeleton key={i} h={{ base: '140px', md: 'auto' }} aspectRatio={{ md: '2/3' }} rounded="26px" />
+                            ))}
+                    </Box>
                 </>
             ) : showEmptySearchFallback ? (
                 <Box
@@ -288,12 +309,19 @@ export default function MainList({
                             onVisibilityChange={handleVisibilityChange}
                         />
 
-                        {products.map((product) => (
-                            <VirtualizedProductCard
-                                key={product.product_id}
-                                product={product}
-                            />
-                        ))}
+                        <Box
+                            display={{ base: 'flex', md: 'grid' }}
+                            flexDirection="column"
+                            gridTemplateColumns={{ md: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)', xl: 'repeat(4, 1fr)' }}
+                            gap="gap"
+                        >
+                            {products.map((product) => (
+                                <VirtualizedProductCard
+                                    key={product.product_id}
+                                    product={product}
+                                />
+                            ))}
+                        </Box>
 
                         {!availabilityLoading &&
                             !debouncedSearchQuery &&

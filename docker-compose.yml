@@ -11,7 +11,7 @@ services:
     volumes:
       - postgres_data_dev:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "5438:5432"
 
   redis:
     image: redis:7
@@ -67,15 +67,25 @@ services:
     volumes:
       - ./frontend:/app
       - frontend_node_modules:/app/node_modules  # изолировать node_modules от хоста
-    ports:
-      - "5173:5173"
     networks:
       - my_network
     environment:
-      # Для локального браузера: http://localhost:8000
-      # Для тестирования в Telegram через тоннель: URL второго тоннеля на порт 8000
-      - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:8000}
+      - VITE_API_BASE_URL=
     command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    ports:
+      - "5173:80"
+    volumes:
+      - ./landing:/usr/share/nginx/html:ro
+      - ./deploy/nginx.dev.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - my_network
 
   adminer:
     image: adminer

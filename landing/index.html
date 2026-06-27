@@ -110,12 +110,16 @@
         <span class="brand__word">Аренда туристического<br />инвентаря</span>
       </a>
       <nav class="site-nav" aria-label="Главная навигация">
-        <a href="#catalog">Прайс-лист</a>
-        <a href="#how">Как это работает</a>
-        <a href="#faq">Вопросы</a>
-        <a href="#contact">Контакты</a>
+        <a href="#catalog" data-i18n="nav.pricelist">Прайс-лист</a>
+        <a href="#how" data-i18n="nav.how">Как это работает</a>
+        <a href="#faq" data-i18n="nav.faq">Вопросы</a>
+        <a href="#contact" data-i18n="nav.contacts">Контакты</a>
       </nav>
-      <a class="btn btn--accent btn--small" data-contact="bot" href="#">Забронировать</a>
+      <div class="lang-switcher">
+        <button class="lang-btn" data-lang="ru">RU</button>
+        <button class="lang-btn" data-lang="en">EN</button>
+      </div>
+      <a class="btn btn--accent btn--small" data-contact="bot" href="#" data-i18n="nav.book">Забронировать</a>
     </div>
   </header>
 
@@ -127,299 +131,301 @@
       <div class="hero__overlay" aria-hidden="true"></div>
 
       <div class="wrap hero__content reveal">
-        <p class="eyebrow eyebrow--center eyebrow--light">⛰ Ташкент · аренда снаряжения для гор</p>
-        <h1 class="hero__title">Снаряжение для&nbsp;гор,<br />которое не&nbsp;нужно покупать</h1>
-        <p class="hero__subtitle">
-          Оплата только при получении — без затрат на инвентарь, который пылится дома.
+        <p class="eyebrow eyebrow--center eyebrow--light" data-i18n="hero.eyebrow">⛰ Ташкент · аренда снаряжения для гор
         </p>
+        <h1 class="hero__title" data-i18n-html="hero.title">Снаряжение для&nbsp;гор,<br />которое не&nbsp;нужно покупать
+        </h1>
+        <p class="hero__subtitle" data-i18n="hero.subtitle">Оплата только при получении — без затрат на инвентарь,
+          который пылится дома.</p>
 
         <ul class="value-props value-props--center value-props--light">
-          <li>Выдача в день обращения</li>
-          <li>Только оригинал: Naturehike, Jeep, Camel, FireMaple</li>
+          <li data-i18n="hero.vp1">Выдача в день обращения</li>
+          <li data-i18n="hero.vp2">Только оригинал: Naturehike, Jeep, Camel, FireMaple</li>
         </ul>
 
         <div class="cta-row cta-row--center">
-          <a class="btn btn--accent" data-contact="bot" href="#">Забронировать онлайн в боте</a>
-          <a class="btn btn--outline-light" data-contact="telegram" href="#">Написать менеджеру</a>
-          <a class="btn btn--outline-light" data-contact="phone" href="#">Позвонить</a>
+          <a class="btn btn--accent" data-contact="bot" href="#" data-i18n="hero.btn_bot">Забронировать онлайн в
+            боте</a>
+          <a class="btn btn--outline-light" data-contact="telegram" href="#" data-i18n="hero.btn_manager">Написать
+            менеджеру</a>
+          <a class="btn btn--outline-light" data-contact="phone" href="#" data-i18n="hero.btn_phone">Позвонить</a>
           <a class="btn btn--text-light" data-contact="instagram" href="#">Instagram →</a>
         </div>
       </div>
     </section>
 
+
+    <!-- CATALOG / PRICES -->
+    <section id="catalog" class="catalog wrap reveal">
+      <p class="eyebrow" data-i17n="catalog.eyebrow">Прайс-лист</p>
+      <h1 class="section-title" data-i18n="catalog.title">Сколько стоит взять снаряжение</h2>
+        <p class="section-subtitle" data-i17n="catalog.subtitle">Цена указана за сутки. Чем дольше берёте — тем меньше
+          платите за день. Актуальные остатки уточняем в Telegram перед бронью.</p>
+
+        <figure class="price-poster">
+          <div class="price-poster__trigger">
+            <img id="price-poster-img" src="images/full-price-list.jpg" loading="lazy"
+              alt="Полный прайс-лист аренды туристического снаряжения одним изображением" />
+            <span class="price-poster__hint" data-i17n-html="catalog.hint">Открыть целиком&nbsp;⤢</span>
+          </div>
+          <div class="price-poster__actions">
+            <button type="button" class="btn btn--outline btn--small price-poster__share" id="price-poster-share">
+              <span aria-hidden="true">↗</span>
+              <span class="price-poster__share-label" data-i17n="catalog.share">Поделиться прайсом</span>
+            </button>
+          </div>
+        </figure>
+        <!-- 
+        <h2 class="catalog__group-title">Палатки</h3>
+          <div class="spotlight-grid">
+            <article class="spotlight-card">
+              <img src="images/tent-9.jpg" width="333" height="600" loading="lazy"
+                alt="7-местная палатка в аренду на фоне горного хребта" />
+              <div class="spotlight-card__body">
+                <h3>Палатка 8-местная</h4>
+                  <p class="spec">379 × 260&nbsp;см · 14&nbsp;кг · + ночник 15к</p>
+                  <p class="price"><span class="price__num">249 000</span><span class="price__unit">сум/сутки</span></p>
+              </div>
+            </article>
+            <article class="spotlight-card">
+              <img src="images/tent-6.jpg" width="333" height="600" loading="lazy"
+                alt="4-местная палатка Golden в аренду для похода в горы" />
+              <div class="spotlight-card__body">
+                <h3>Палатка 5-местная</h4>
+                  <p class="spec">269 × 240 × 155&nbsp;см · 4,6&nbsp;кг</p>
+                  <p class="price"><span class="price__num">149 000</span><span class="price__unit">сум/сутки</span></p>
+              </div>
+            </article>
+            <article class="spotlight-card">
+              <img src="images/tent-5.jpg" width="333" height="600" loading="lazy"
+                alt="3-местная палатка Naturehike в аренду на выходные" />
+              <div class="spotlight-card__body">
+                <h3>Палатка 4-местная</h4>
+                  <p class="spec">209 × 130&nbsp;см · 3&nbsp;кг</p>
+                  <p class="price"><span class="price__num">119 000</span><span class="price__unit">сум/сутки</span></p>
+              </div>
+            </article>
+          </div> -->
+
+        <!-- временно скрыто по просьбе — убрать атрибут hidden, чтобы вернуть категории -->
+        <!-- <div class="category-grid" hidden>
+
+        <article class="category-card">
+          <h2 class="category-card__title">Сон и комфорт</h3>
+          <ul class="ticket-list">
+            <li class="ticket-row">
+              <img src="images/sleeping-bag.jpg" width="119" height="160" loading="lazy"
+                alt="Спальный мешок Naturehike в аренду" />
+              <span class="ticket-row__name">Спальный мешок<br /><span class="spec">219 × 75 см, до 7°C</span></span>
+              <span class="ticket-row__price">39 000</span>
+            </li>
+            <li class="ticket-row">
+              <img src="images/sleeping-pad.jpg" width="119" height="160" loading="lazy"
+                alt="Каремат туристический в аренду" />
+              <span class="ticket-row__name">Каремат<br /><span class="spec">199 × 60 × 2,5 см</span></span>
+              <span class="ticket-row__price">29 000</span>
+            </li>
+          </ul>
+        </article>
+
+        <article class="category-card">
+          <h2 class="category-card__title">Кухня и готовка</h3>
+          <ul class="ticket-list">
+            <li class="ticket-row">
+              <img src="images/burner.jpg" width="119" height="160" loading="lazy"
+                alt="Газовая горелка FireMaple в аренду" />
+              <span class="ticket-row__name">Газовая горелка 0L<br /><span class="spec">без баллона</span></span>
+              <span class="ticket-row__price">39 000</span>
+            </li>
+            <li class="ticket-row">
+              <img src="images/stove.jpg" width="119" height="160" loading="lazy"
+                alt="Туристическая плита Jeep для готовки в аренду" />
+              <span class="ticket-row__name">Комфорка (мини-плита)</span>
+              <span class="ticket-row__price">39 000</span>
+            </li>
+            <li class="ticket-row">
+              <span class="ticket-row__name">Баллон газовый</span>
+              <span class="ticket-row__price">39 000</span>
+            </li>
+            <li class="ticket-row">
+              <img src="images/cookware.jpg" width="119" height="160" loading="lazy"
+                alt="Набор туристической посуды Jeep: казан, чайник, сковорода" />
+              <span class="ticket-row__name">Сковорода / Чайник 0.6L / Кастрюля 3.6L<br /><span class="spec">по 15 000
+                  каждое</span></span>
+              <span class="ticket-row__price">14 000</span>
+            </li>
+            <li class="ticket-row">
+              <img src="images/windscreen.jpg" width="119" height="160" loading="lazy"
+                alt="Ветрозащитные стенки для горелки в аренду" />
+              <span class="ticket-row__name">Стенки от ветра</span>
+              <span class="ticket-row__price">19 000</span>
+            </li>
+          </ul>
+        </article>
+
+        <article class="category-card">
+          <h2 class="category-card__title">Мебель</h3>
+          <ul class="ticket-list">
+            <li class="ticket-row">
+              <img src="images/furniture-set.jpg" width="119" height="160" loading="lazy"
+                alt="Комплект кемпинговой мебели: 3 стула и стол в аренду" />
+              <span class="ticket-row__name">Комплект 3 стула + 1 стол</span>
+              <span class="ticket-row__price">139 000</span>
+            </li>
+            <li class="ticket-row">
+              <img src="images/table.jpg" width="119" height="160" loading="lazy"
+                alt="Раскладной стол Jeep 0.20 м в аренду" />
+              <span class="ticket-row__name">Стол Jeep 0,20&nbsp;м</span>
+              <span class="ticket-row__price">39 000</span>
+            </li>
+            <li class="ticket-row">
+              <img src="images/chair.jpg" width="119" height="160" loading="lazy" alt="Складной стул Camel в аренду" />
+              <span class="ticket-row__name">Стул Camel</span>
+              <span class="ticket-row__price">24 000</span>
+            </li>
+          </ul>
+        </article>
+
+        <article class="category-card">
+          <h2 class="category-card__title">Треккинг</h3>
+          <ul class="ticket-list">
+            <li class="ticket-row">
+              <img src="images/backpack.jpg" width="119" height="160" loading="lazy"
+                alt="Туристический рюкзак Camel 59 литров в аренду" />
+              <span class="ticket-row__name">Рюкзак 59L<br /><span class="spec">1,7 кг</span></span>
+              <span class="ticket-row__price">49 000</span>
+            </li>
+            <li class="ticket-row">
+              <img src="images/trekking-poles.jpg" width="119" height="160" loading="lazy"
+                alt="Трекинговые палки в аренду для похода в горы" />
+              <span class="ticket-row__name">Трекинговые палки<br /><span class="spec">299 г, 135 см</span></span>
+              <span class="ticket-row__price">29 000</span>
+            </li>
+          </ul>
+        </article>
+
+        <article class="category-card">
+          <h2 class="category-card__title">Свет и энергия</h3>
+          <ul class="ticket-list">
+            <li class="ticket-row">
+              <span class="ticket-row__name">Power Bank 19 000&nbsp;mAh</span>
+              <span class="ticket-row__price">39 000</span>
+            </li>
+            <li class="ticket-row">
+              <img src="images/headlamp.jpg" width="119" height="160" loading="lazy"
+                alt="Налобный фонарь Jeep в аренду" />
+              <span class="ticket-row__name">Фонарь налобный</span>
+              <span class="ticket-row__price">19 000</span>
+            </li>
+            <li class="ticket-row">
+              <img src="images/flashlight.jpg" width="119" height="160" loading="lazy"
+                alt="Ручной фонарь Jeep в аренду" />
+              <span class="ticket-row__name">Фонарь ручной</span>
+              <span class="ticket-row__price">29 000</span>
+            </li>
+            <li class="ticket-row">
+              <img src="images/lantern-light.jpg" width="119" height="160" loading="lazy"
+                alt="Ночник в палатку в аренду" />
+              <span class="ticket-row__name">Ночник в палатку</span>
+              <span class="ticket-row__price">14 000</span>
+            </li>
+          </ul>
+        </article>
+
+      </div> -->
+    </section>
+
+
+
     <!-- LOCATIONS -->
     <section class="locations reveal">
       <div class="wrap">
-        <p class="eyebrow eyebrow--center">Куда едут с нашим снаряжением</p>
+        <p class="eyebrow eyebrow--center" data-i18n="loc.eyebrow">Куда едут с нашим снаряжением</p>
       </div>
-      <p class="locations__row">Чимган&nbsp;· Бельдерсай&nbsp;· Чарвак<br />Чаткальский хребет&nbsp;· Бичанак</p>
+      <p class="locations__row" data-i18n-html="loc.row">Чимган&nbsp;· Бельдерсай&nbsp;· Чарвак<br />Чаткальский
+        хребет&nbsp;· Бичанак</p>
       <div class="wrap">
-        <p class="locations__note">
-          Едете в горы под Ташкентом на выходные — снаряжение можно забрать в день выезда и вернуть сразу после похода.
-        </p>
+        <p class="locations__note" data-i18n="loc.note">Едете в горы под Ташкентом на выходные — снаряжение можно
+          забрать в день выезда и вернуть сразу после похода.</p>
       </div>
     </section>
 
     <!-- HOW IT WORKS -->
     <section id="how" class="how wrap reveal">
-      <p class="eyebrow">Как это работает</p>
-      <h2 class="section-title">От брони до возврата — четыре шага</h2>
+      <p class="eyebrow" data-i18n="how.eyebrow">Как это работает</p>
+      <h2 class="section-title" data-i18n="how.title">От брони до возврата — четыре шага</h2>
 
       <ol class="steps">
         <li class="steps__item">
           <span class="steps__num">01</span>
-          <p class="steps__text">Выбираете снаряжение и бронируете его за 50 000 сум, написав нам, на сколько суток</p>
+          <p class="steps__text" data-i18n="how.step1">Выбираете снаряжение и бронируете его за 50 000 сум, написав нам,
+            на сколько суток</p>
         </li>
         <li class="steps__item">
           <span class="steps__num">02</span>
-          <p class="steps__text">Приезжаете к нам, оставляете паспорт в залог и оплачиваете всю стоимость аренды</p>
+          <p class="steps__text" data-i18n="how.step2">Приезжаете к нам, оставляете паспорт в залог и оплачиваете всю
+            стоимость аренды</p>
         </li>
         <li class="steps__item">
           <span class="steps__num">03</span>
-          <p class="steps__text">Забираете снаряжение и едете в горы</p>
+          <p class="steps__text" data-i18n="how.step3">Забираете снаряжение и едете в горы</p>
         </li>
         <li class="steps__item">
           <span class="steps__num">04</span>
-          <p class="steps__text">Возвращаете инвентарь и забираете паспорт обратно</p>
+          <p class="steps__text" data-i18n="how.step4">Возвращаете инвентарь и забираете паспорт обратно</p>
         </li>
       </ol>
-      <p class="how__note">Бронь — 50 000 сум, остальные деньги передаёте только при получении снаряжения.</p>
+      <p class="how__note" data-i18n="how.note">Бронь — 50 000 сум, остальные деньги передаёте только при получении
+        снаряжения.</p>
     </section>
-
-    <!-- CATALOG / PRICES -->
-    <section id="catalog" class="catalog wrap reveal">
-      <p class="eyebrow">Прайс-лист</p>
-      <h2 class="section-title">Сколько стоит взять снаряжение</h2>
-      <p class="section-subtitle">
-        Цена указана за сутки. Чем дольше берёте — тем меньше платите за день.
-        Актуальные остатки уточняем в Telegram перед бронью.
-      </p>
-
-      <figure class="price-poster">
-        <div class="price-poster__trigger">
-          <img id="price-poster-img" src="images/full-price-list.jpg" loading="lazy"
-            alt="Полный прайс-лист аренды туристического снаряжения одним изображением" />
-          <span class="price-poster__hint">Открыть целиком&nbsp;⤢</span>
-        </div>
-        <div class="price-poster__actions">
-          <button type="button" class="btn btn--outline btn--small price-poster__share" id="price-poster-share">
-            <span aria-hidden="true">↗</span>
-            <span class="price-poster__share-label">Поделиться прайсом</span>
-          </button>
-        </div>
-      </figure>
-      <!-- 
-      <h3 class="catalog__group-title">Палатки</h3>
-      <div class="spotlight-grid">
-        <article class="spotlight-card">
-          <img src="images/tent-8.jpg" width="600" height="800" loading="lazy"
-            alt="8-местная палатка в аренду на фоне горного хребта" />
-          <div class="spotlight-card__body">
-            <h4>Палатка 8-местная</h4>
-            <p class="spec">380 × 260&nbsp;см · 14&nbsp;кг · + ночник 15к</p>
-            <p class="price"><span class="price__num">250 000</span><span class="price__unit">сум/сутки</span></p>
-          </div>
-        </article>
-        <article class="spotlight-card">
-          <img src="images/tent-5.jpg" width="600" height="800" loading="lazy"
-            alt="5-местная палатка Golden в аренду для похода в горы" />
-          <div class="spotlight-card__body">
-            <h4>Палатка 5-местная</h4>
-            <p class="spec">270 × 240 × 155&nbsp;см · 4,6&nbsp;кг</p>
-            <p class="price"><span class="price__num">150 000</span><span class="price__unit">сум/сутки</span></p>
-          </div>
-        </article>
-        <article class="spotlight-card">
-          <img src="images/tent-4.jpg" width="600" height="800" loading="lazy"
-            alt="4-местная палатка Naturehike в аренду на выходные" />
-          <div class="spotlight-card__body">
-            <h4>Палатка 4-местная</h4>
-            <p class="spec">210 × 130&nbsp;см · 3&nbsp;кг</p>
-            <p class="price"><span class="price__num">120 000</span><span class="price__unit">сум/сутки</span></p>
-          </div>
-        </article>
-      </div> -->
-
-      <!-- временно скрыто по просьбе — убрать атрибут hidden, чтобы вернуть категории -->
-      <!-- <div class="category-grid" hidden>
-
-        <article class="category-card">
-          <h3 class="category-card__title">Сон и комфорт</h3>
-          <ul class="ticket-list">
-            <li class="ticket-row">
-              <img src="images/sleeping-bag.jpg" width="120" height="160" loading="lazy"
-                alt="Спальный мешок Naturehike в аренду" />
-              <span class="ticket-row__name">Спальный мешок<br /><span class="spec">220 × 75 см, до 7°C</span></span>
-              <span class="ticket-row__price">40 000</span>
-            </li>
-            <li class="ticket-row">
-              <img src="images/sleeping-pad.jpg" width="120" height="160" loading="lazy"
-                alt="Каремат туристический в аренду" />
-              <span class="ticket-row__name">Каремат<br /><span class="spec">200 × 60 × 2,5 см</span></span>
-              <span class="ticket-row__price">30 000</span>
-            </li>
-          </ul>
-        </article>
-
-        <article class="category-card">
-          <h3 class="category-card__title">Кухня и готовка</h3>
-          <ul class="ticket-list">
-            <li class="ticket-row">
-              <img src="images/burner.jpg" width="120" height="160" loading="lazy"
-                alt="Газовая горелка FireMaple в аренду" />
-              <span class="ticket-row__name">Газовая горелка 1L<br /><span class="spec">без баллона</span></span>
-              <span class="ticket-row__price">40 000</span>
-            </li>
-            <li class="ticket-row">
-              <img src="images/stove.jpg" width="120" height="160" loading="lazy"
-                alt="Туристическая плита Jeep для готовки в аренду" />
-              <span class="ticket-row__name">Комфорка (мини-плита)</span>
-              <span class="ticket-row__price">40 000</span>
-            </li>
-            <li class="ticket-row">
-              <span class="ticket-row__name">Баллон газовый</span>
-              <span class="ticket-row__price">40 000</span>
-            </li>
-            <li class="ticket-row">
-              <img src="images/cookware.jpg" width="120" height="160" loading="lazy"
-                alt="Набор туристической посуды Jeep: казан, чайник, сковорода" />
-              <span class="ticket-row__name">Сковорода / Чайник 1.6L / Кастрюля 3.6L<br /><span class="spec">по 15 000
-                  каждое</span></span>
-              <span class="ticket-row__price">15 000</span>
-            </li>
-            <li class="ticket-row">
-              <img src="images/windscreen.jpg" width="120" height="160" loading="lazy"
-                alt="Ветрозащитные стенки для горелки в аренду" />
-              <span class="ticket-row__name">Стенки от ветра</span>
-              <span class="ticket-row__price">20 000</span>
-            </li>
-          </ul>
-        </article>
-
-        <article class="category-card">
-          <h3 class="category-card__title">Мебель</h3>
-          <ul class="ticket-list">
-            <li class="ticket-row">
-              <img src="images/furniture-set.jpg" width="120" height="160" loading="lazy"
-                alt="Комплект кемпинговой мебели: 4 стула и стол в аренду" />
-              <span class="ticket-row__name">Комплект 4 стула + 1 стол</span>
-              <span class="ticket-row__price">140 000</span>
-            </li>
-            <li class="ticket-row">
-              <img src="images/table.jpg" width="120" height="160" loading="lazy"
-                alt="Раскладной стол Jeep 1.20 м в аренду" />
-              <span class="ticket-row__name">Стол Jeep 1,20&nbsp;м</span>
-              <span class="ticket-row__price">40 000</span>
-            </li>
-            <li class="ticket-row">
-              <img src="images/chair.jpg" width="120" height="160" loading="lazy" alt="Складной стул Camel в аренду" />
-              <span class="ticket-row__name">Стул Camel</span>
-              <span class="ticket-row__price">25 000</span>
-            </li>
-          </ul>
-        </article>
-
-        <article class="category-card">
-          <h3 class="category-card__title">Треккинг</h3>
-          <ul class="ticket-list">
-            <li class="ticket-row">
-              <img src="images/backpack.jpg" width="120" height="160" loading="lazy"
-                alt="Туристический рюкзак Camel 60 литров в аренду" />
-              <span class="ticket-row__name">Рюкзак 60L<br /><span class="spec">1,7 кг</span></span>
-              <span class="ticket-row__price">50 000</span>
-            </li>
-            <li class="ticket-row">
-              <img src="images/trekking-poles.jpg" width="120" height="160" loading="lazy"
-                alt="Трекинговые палки в аренду для похода в горы" />
-              <span class="ticket-row__name">Трекинговые палки<br /><span class="spec">300 г, 135 см</span></span>
-              <span class="ticket-row__price">30 000</span>
-            </li>
-          </ul>
-        </article>
-
-        <article class="category-card">
-          <h3 class="category-card__title">Свет и энергия</h3>
-          <ul class="ticket-list">
-            <li class="ticket-row">
-              <span class="ticket-row__name">Power Bank 20 000&nbsp;mAh</span>
-              <span class="ticket-row__price">40 000</span>
-            </li>
-            <li class="ticket-row">
-              <img src="images/headlamp.jpg" width="120" height="160" loading="lazy"
-                alt="Налобный фонарь Jeep в аренду" />
-              <span class="ticket-row__name">Фонарь налобный</span>
-              <span class="ticket-row__price">20 000</span>
-            </li>
-            <li class="ticket-row">
-              <img src="images/flashlight.jpg" width="120" height="160" loading="lazy"
-                alt="Ручной фонарь Jeep в аренду" />
-              <span class="ticket-row__name">Фонарь ручной</span>
-              <span class="ticket-row__price">30 000</span>
-            </li>
-            <li class="ticket-row">
-              <img src="images/lantern-light.jpg" width="120" height="160" loading="lazy"
-                alt="Ночник в палатку в аренду" />
-              <span class="ticket-row__name">Ночник в палатку</span>
-              <span class="ticket-row__price">15 000</span>
-            </li>
-          </ul>
-        </article>
-
-      </div> -->
-    </section>
-
     <!-- TRUST / SEO COPY -->
     <section class="trust wrap reveal">
-      <p class="eyebrow">Почему берут у нас</p>
-      <h2 class="section-title">Оригинальные бренды и понятные условия</h2>
+      <p class="eyebrow" data-i18n="trust.eyebrow">Почему берут у нас</p>
+      <h2 class="section-title" data-i18n="trust.title">Оригинальные бренды и понятные условия</h2>
       <div class="trust__columns">
-        <p>
-          Мы сдаём в аренду туристическое снаряжение для походов в горы, кемпинга и пикников в Ташкенте и области —
-          палатки на 4, 5 и 8 человек, спальные мешки, карематы, рюкзаки, треккинговые палки, кухонное оборудование
-          и кемпинговую мебель. Всё снаряжение — от Naturehike, Jeep, Camel и FireMaple, в рабочем состоянии
-          и проверено перед каждой выдачей.
+        <p data-i18n="trust.p1">Мы сдаём в аренду туристическое снаряжение для походов в горы, кемпинга и пикников в
+          Ташкенте и области — палатки на 4, 5 и 8 человек, спальные мешки, карематы, рюкзаки, треккинговые палки,
+          кухонное оборудование и кемпинговую мебель. Всё снаряжение — от Naturehike, Jeep, Camel и FireMaple, в рабочем
+          состоянии и проверено перед каждой выдачей.</p>
+        <p data-i18n="trust.p2">Чаще всего у нас берут снаряжение перед выездом в Чимган, Бельдерсай, Чарвак и
+          Чаткальский хребет — туда, где не всегда есть смысл тащить с собой палатку и спальник на весь сезон. Взять
+          напрокат на выходные выходит дешевле, чем покупать снаряжение, которым вы воспользуетесь два-три раза в год.
         </p>
-        <p>
-          Чаще всего у нас берут снаряжение перед выездом в Чимган, Бельдерсай, Чарвак и Чаткальский хребет —
-          туда, где не всегда есть смысл тащить с собой палатку и спальник на весь сезон. Взять напрокат на
-          выходные выходит дешевле, чем покупать снаряжение, которым вы воспользуетесь два-три раза в год.
-        </p>
-        <p>
-          Бронируете онлайн за 50 000 сум, а при получении оставляете паспорт в залог и оплачиваете
-          полную стоимость аренды за нужное количество суток — без абонементов и скрытых условий.
-        </p>
+        <p data-i18n="trust.p3">Бронируете онлайн за 50 000 сум, а при получении оставляете паспорт в залог и
+          оплачиваете полную стоимость аренды за нужное количество суток — без абонементов и скрытых условий.</p>
       </div>
     </section>
 
     <!-- FAQ -->
     <section id="faq" class="faq wrap reveal">
-      <p class="eyebrow">Вопросы</p>
-      <h2 class="section-title">Что обычно спрашивают</h2>
+      <p class="eyebrow" data-i18n="faq.eyebrow">Вопросы</p>
+      <h2 class="section-title" data-i18n="faq.title">Что обычно спрашивают</h2>
 
       <div class="faq-list">
         <details class="faq-item">
-          <summary>Сколько стоит аренда палатки на выходные?</summary>
-          <p>Зависит от вместимости: 4-местная — 120 000 сум, 5-местная — 150 000 сум, 8-местная — 250 000 сум за сутки.
-            При аренде на несколько дней итоговая цена за сутки ниже — уточняем в Telegram.</p>
+          <summary data-i18n="faq.q1">Сколько стоит аренда палатки на выходные?</summary>
+          <p data-i18n="faq.a1">Зависит от вместимости: 4-местная — 120 000 сум, 5-местная — 150 000 сум, 8-местная —
+            250 000 сум за сутки. При аренде на несколько дней итоговая цена за сутки ниже — уточняем в Telegram.</p>
         </details>
         <details class="faq-item">
-          <summary>Что нужно, чтобы взять снаряжение в аренду?</summary>
-          <p>Паспорт — он остаётся у нас в залог на время аренды. Полную стоимость аренды оплачиваете при получении
-            снаряжения.</p>
+          <summary data-i18n="faq.q2">Что нужно, чтобы взять снаряжение в аренду?</summary>
+          <p data-i18n="faq.a2">Паспорт — он остаётся у нас в залог на время аренды. Полную стоимость аренды оплачиваете
+            при получении снаряжения.</p>
         </details>
         <details class="faq-item">
-          <summary>Можно ли забронировать заранее?</summary>
-          <p>Да — бронь стоит 50 000 сум, пишите в Telegram, подтвердим место. Остальную сумму оплачиваете при
-            получении снаряжения.</p>
+          <summary data-i18n="faq.q3">Можно ли забронировать заранее?</summary>
+          <p data-i18n="faq.a3">Да — бронь стоит 50 000 сум, пишите в Telegram, подтвердим место. Остальную сумму
+            оплачиваете при получении снаряжения.</p>
         </details>
         <details class="faq-item">
-          <summary>Где забирать и возвращать инвентарь?</summary>
-          <p>В Ташкенте — точный адрес пункта выдачи присылаем после подтверждения брони в Telegram.</p>
+          <summary data-i18n="faq.q4">Где забирать и возвращать инвентарь?</summary>
+          <p data-i18n="faq.a4">В Ташкенте — точный адрес пункта выдачи присылаем после подтверждения брони в Telegram.
+          </p>
         </details>
         <details class="faq-item">
-          <summary>Можно ли арендовать сразу несколько единиц снаряжения?</summary>
-          <p>Да — большинство берут сразу комплект: палатку, спальники, карематы и кухню. Соберём список и посчитаем
-            сумму в чате.</p>
+          <summary data-i18n="faq.q5">Можно ли арендовать сразу несколько единиц снаряжения?</summary>
+          <p data-i18n="faq.a5">Да — большинство берут сразу комплект: палатку, спальники, карематы и кухню. Соберём
+            список и посчитаем сумму в чате.</p>
         </details>
       </div>
     </section>
@@ -427,17 +433,20 @@
     <!-- CONTACT -->
     <section id="contact" class="contact-band reveal">
       <div class="wrap">
-        <p class="eyebrow eyebrow--light">Бронирование</p>
-        <h2 class="contact-band__title">Пишите нам - поможем </br>с выбором снаряжения </br>и оформим бронь</h2>
+        <p class="eyebrow eyebrow--light" data-i18n="contact.eyebrow">Бронирование</p>
+        <h2 class="contact-band__title" data-i18n-html="contact.title">Пишите нам —<br />поможем с выбором
+          снаряжения<br />и оформим бронь</h2>
 
         <div class="contact-buttons">
-          <a class="btn btn--accent" data-contact="bot" href="#">Забронировать онлайн в боте</a>
-          <a class="btn btn--outline-light" data-contact="telegram" href="#">Написать в Telegram</a>
-          <a class="btn btn--outline-light" data-contact="phone" href="#">Позвонить</a>
+          <a class="btn btn--accent" data-contact="bot" href="#" data-i18n="contact.btn_bot">Забронировать онлайн в
+            боте</a>
+          <a class="btn btn--outline-light" data-contact="telegram" href="#" data-i18n="contact.btn_telegram">Написать в
+            Telegram</a>
+          <a class="btn btn--outline-light" data-contact="phone" href="#" data-i18n="contact.btn_phone">Позвонить</a>
           <a class="btn btn--text-light" data-contact="instagram" href="#">Instagram →</a>
         </div>
 
-        <p class="contact-band__address">🇺🇿 Узбекистан, город Ташкент 📍</p>
+        <p class="contact-band__address" data-i18n="contact.address">🇺🇿 Узбекистан, город Ташкент 📍</p>
       </div>
     </section>
 
@@ -445,18 +454,20 @@
 
   <footer class="site-footer">
     <div class="wrap site-footer__row">
-      <p class="brand__word brand__word--footer">Аренда туристического инвентаря</p>
+      <p class="brand__word brand__word--footer" data-i18n="footer.brand">Аренда туристического инвентаря</p>
       <nav class="site-footer__links" aria-label="Контакты">
         <a data-contact="telegram" href="#">Telegram</a>
-        <a data-contact="phone" href="#">Телефон</a>
+        <a data-contact="phone" href="#" data-i18n="footer.phone">Телефон</a>
         <a data-contact="instagram" href="#">Instagram</a>
       </nav>
-      <p class="site-footer__copy">© <span id="year"></span> Аренда туристического инвентаря. Ташкент.</p>
+      <p class="site-footer__copy" data-i18n-html="footer.copy"></p>
     </div>
   </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/viewerjs@1.11.6/dist/viewer.min.js" defer></script>
-  <script src="js/main.js?v=4" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/i18next@23/i18next.min.js" defer></script>
+  <script src="js/translations.js" defer></script>
+  <script src="js/main.js?v=5" defer></script>
 </body>
 
 </html>

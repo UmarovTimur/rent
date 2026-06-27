@@ -14,5 +14,13 @@ class UserServiceI(Protocol):
         ...
 
     @abstractmethod
+    async def get_by_phone(self, phone_number: str) -> UserResponse | None:
+        ...
+
+    @abstractmethod
+    async def create_by_phone(self, phone_number: str, first_name: str, last_name: str | None = None) -> UserResponse:
+        ...
+
+    @abstractmethod
     async def get_admins(self) -> list[int]:
         ...

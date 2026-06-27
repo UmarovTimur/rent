@@ -33,6 +33,14 @@ export interface OrderHistory {
 }
 
 export const UserService = {
+    authByPhone: async (phoneNumber: string, firstName?: string): Promise<{ user_id: number; is_new: boolean }> => {
+        const response = await axios.post<{ user_id: number; is_new: boolean }>(
+            `${API_BASE_URL}api/v1/users/auth/phone`,
+            { phone_number: phoneNumber, first_name: firstName ?? null }
+        )
+        return response.data
+    },
+
     getUserById: async (userId: number): Promise<User> => {
         try {
             const response = await axios.get<User>(
