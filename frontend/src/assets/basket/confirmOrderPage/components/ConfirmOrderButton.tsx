@@ -3,7 +3,6 @@ import { useDrawer } from '@/contexts/DrawerContext.tsx'
 import { useBasketContext } from '@/contexts/BasketContext.tsx'
 import { useOrder } from '@/contexts/OrderContext'
 import { useEffect } from 'react'
-import { toaster } from '@/components/ui/toaster.tsx'
 import { useUserContext } from '@/contexts/UserContext.tsx'
 import { formatPriceK } from '@/utils/price'
 
@@ -13,14 +12,12 @@ export default function ConfirmOrderButton() {
     const { submitOrder, isSuccess, resetForm } = useOrder()
     const { refreshOrderHistory } = useUserContext()
 
+    // Успешное оформление: закрываем корзину, дальше клиенту показывается
+    // OrderSuccessDialog (глобальный попап с напоминанием отправить чек в бот).
     useEffect(() => {
         if (isSuccess) {
             resetForm()
             onClose()
-            toaster.create({
-                description: 'Заказ успешно оформлен!',
-                type: 'success',
-            })
         }
     }, [isSuccess, resetForm, onClose])
 

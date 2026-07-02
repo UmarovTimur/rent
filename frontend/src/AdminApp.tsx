@@ -1,13 +1,34 @@
-import { Alert, Box, Center, ChakraProvider, Heading, Spinner, Text } from '@chakra-ui/react'
+import { Alert, Box, Button, Center, ChakraProvider, Flex, Heading, Link, Spinner, Text } from '@chakra-ui/react'
 import { useEffect, useState } from 'react'
 import { startOfWeek, endOfWeek } from 'date-fns'
 import axios from 'axios'
 import { system } from './theme.ts'
+import { ADMIN_URL } from '@/config'
 import { Toaster } from '@/components/ui/toaster'
 import { AdminRentalService } from '@/api/AdminRentalService'
 import AdminCalendar from '@/assets/admin/AdminCalendar'
 
 type AccessState = 'checking' | 'granted' | 'denied' | 'error'
+
+function AdminNavHeader() {
+    return (
+        <Flex gap="2" p="3" borderBottomWidth="1px" mb="4" wrap="wrap">
+            <Link href={ADMIN_URL}>
+                <Button variant="outline" size="sm" rounded="full">
+                    Админ
+                </Button>
+            </Link>
+            <Button variant="solid" colorPalette="blue" size="sm" rounded="full" pointerEvents="none">
+                Календарь
+            </Button>
+            <Link href="/app/">
+                <Button variant="outline" size="sm" rounded="full">
+                    Приложение
+                </Button>
+            </Link>
+        </Flex>
+    )
+}
 
 export default function AdminApp() {
     const [access, setAccess] = useState<AccessState>('checking')
@@ -33,6 +54,8 @@ export default function AdminApp() {
 
     return (
         <ChakraProvider value={system}>
+            <AdminNavHeader />
+
             {access === 'checking' && (
                 <Center h="100vh">
                     <Spinner size="xl" />

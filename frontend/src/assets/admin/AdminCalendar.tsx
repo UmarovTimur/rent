@@ -1,28 +1,28 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import listPlugin from '@fullcalendar/list'
 import interactionPlugin from '@fullcalendar/interaction'
-import type { EventClickArg, EventInput } from '@fullcalendar/core'
+import type { EventClickArg, EventInput, EventSourceFuncArg } from '@fullcalendar/core'
 import { Badge, Box, Flex } from '@chakra-ui/react'
 import { useIsDesktop } from '@/hooks/useIsDesktop'
 import { AdminRentalService } from '@/api/AdminRentalService'
 import { RentalOrderSummary } from '@/types/AdminRental'
 import { OrderStatus } from '@/types/Basket'
-import { RENTAL_STATUS_MAP, getRentalStatusMeta } from '@/utils/rentalStatus'
+import { RENTAL_STATUS_MAP, getRentalStatusCalendarColor } from '@/utils/rentalStatus'
 import MotionDrawer from '@/assets/MotionDrawer.tsx'
 import RentalDetailDrawer from '@/assets/admin/RentalDetailDrawer'
 
 const toEvent = (rental: RentalOrderSummary): EventInput => {
-    const meta = getRentalStatusMeta(rental.status)
+    const color = getRentalStatusCalendarColor(rental.status)
     const client = rental.first_name || rental.username || `ID ${rental.telegram_id}`
     return {
         id: String(rental.order_id),
         title: `#${rental.order_id} ${client}`,
         start: rental.rental_start,
         end: rental.rental_end,
-        backgroundColor: meta.color,
-        borderColor: meta.color,
+        backgroundColor: color,
+        borderColor: color,
     }
 }
 
@@ -32,16 +32,44 @@ export default function AdminCalendar() {
     const isDesktop = useIsDesktop()
     const calendarRef = useRef<FullCalendar>(null)
     const drawerTriggerRef = useRef<HTMLButtonElement>(null)
-    const [statusFilter, setStatusFilter] = useState<OrderStatus | null>(null)
+    const [selectedStatuses, setSelectedStatuses] = useState<OrderStatus[]>([])
     const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null)
 
     useEffect(() => {
         calendarRef.current?.getApi().changeView(isDesktop ? 'dayGridMonth' : 'listWeek')
     }, [isDesktop])
 
-    useEffect(() => {
-        calendarRef.current?.getApi().refetchEvents()
-    }, [statusFilter])
+    const toggleStatus = (status: OrderStatus) => {
+        setSelectedStatuses((current) =>
+            current.includes(status) ? current.filter((s) => s !== status) : [...current, status]
+        )
+    }
+
+    // Stable identity between renders (FullCalendar refetches whenever the `events` prop
+    // changes, so an inline function would make every event flash on unrelated re-renders,
+    // e.g. when opening the detail drawer). Filtering is client-side: an empty selection
+    // shows everything.
+    const fetchEvents = useCallback(
+        (
+            fetchInfo: EventSourceFuncArg,
+            successCallback: (events: EventInput[]) => void,
+            failureCallback: (error: Error) => void
+        ) => {
+            AdminRentalService.getRentals(fetchInfo.startStr, fetchInfo.endStr)
+                .then((rentals) => {
+                    const visible =
+                        selectedStatuses.length > 0
+                            ? rentals.filter((rental) => selectedStatuses.includes(rental.status))
+                            : rentals
+                    successCallback(visible.map(toEvent))
+                })
+                .catch((error) => {
+                    console.error('Failed to load rentals:', error)
+                    failureCallback(error)
+                })
+        },
+        [selectedStatuses]
+    )
 
     const handleEventClick = (info: EventClickArg) => {
         setSelectedOrderId(Number(info.event.id))
@@ -55,7 +83,7 @@ export default function AdminCalendar() {
             <Flex gap="2" wrap="wrap" mb="4">
                 {ALL_STATUSES.map((status) => {
                     const meta = RENTAL_STATUS_MAP[status]
-                    const active = statusFilter === status
+                    const active = selectedStatuses.includes(status)
                     return (
                         <Badge
                             key={status}
@@ -66,7 +94,7 @@ export default function AdminCalendar() {
                             py="2"
                             rounded="full"
                             fontSize="sm"
-                            onClick={() => setStatusFilter(active ? null : status)}
+                            onClick={() => toggleStatus(status)}
                         >
                             {meta.label}
                         </Badge>
@@ -83,14 +111,7 @@ export default function AdminCalendar() {
                 locale="ru"
                 firstDay={1}
                 eventClick={handleEventClick}
-                events={(fetchInfo, successCallback, failureCallback) => {
-                    AdminRentalService.getRentals(fetchInfo.startStr, fetchInfo.endStr, statusFilter ?? undefined)
-                        .then((rentals) => successCallback(rentals.map(toEvent)))
-                        .catch((error) => {
-                            console.error('Failed to load rentals:', error)
-                            failureCallback(error)
-                        })
-                }}
+                events={fetchEvents}
             />
 
             <MotionDrawer trigger={<button ref={drawerTriggerRef} style={{ display: 'none' }} />}>

@@ -7,6 +7,7 @@ import { useCategories } from '@/hooks/useCategories'
 import BasketButton from '@/assets/basket/BasketButton.tsx'
 import MotionDrawer from '@/assets/MotionDrawer.tsx'
 import { BasketDrawerContent } from '@/assets/basket/BasketDrawer.tsx'
+import OrderSuccessDialog from '@/assets/basket/OrderSuccessDialog.tsx'
 import { BasketProvider } from '@/contexts/BasketContext.tsx'
 import { OrderProvider } from '@/contexts/OrderContext'
 import { Toaster } from '@/components/ui/toaster'
@@ -129,6 +130,7 @@ export default function App() {
                                 </MotionDrawer>
                             </Box>
 
+                            <OrderSuccessDialog />
                             <Toaster />
                         </ChakraProvider>
                     </BasketProvider>

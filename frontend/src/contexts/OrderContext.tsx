@@ -26,6 +26,8 @@ type OrderContextType = {
     isSubmitting: boolean
     submitError: string | null
     isSuccess: boolean
+    isReceiptNoticeOpen: boolean
+    closeReceiptNotice: () => void
     updateField: (field: keyof OrderFormState, value: string) => void
     updateSelectField: (field: keyof OrderFormState, value: string[]) => void
     submitOrder: (basket: Basket) => Promise<boolean>
@@ -64,6 +66,9 @@ export const OrderProvider = ({
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [submitError, setSubmitError] = useState<string | null>(null)
     const [isSuccess, setIsSuccess] = useState(false)
+    const [isReceiptNoticeOpen, setIsReceiptNoticeOpen] = useState(false)
+
+    const closeReceiptNotice = useCallback(() => setIsReceiptNoticeOpen(false), [])
 
     const validateForm = useCallback(() => {
         const newErrors: Record<string, string> = {}
@@ -154,6 +159,7 @@ export const OrderProvider = ({
                 })
 
                 setIsSuccess(true)
+                setIsReceiptNoticeOpen(true)
                 return true
             } catch (error) {
                 setSubmitError('Ошибка при оформлении заказа')
@@ -187,6 +193,8 @@ export const OrderProvider = ({
                 isSubmitting,
                 submitError,
                 isSuccess,
+                isReceiptNoticeOpen,
+                closeReceiptNotice,
                 updateField,
                 updateSelectField,
                 submitOrder,
