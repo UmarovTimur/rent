@@ -79,7 +79,9 @@ export default function AdminCalendar() {
     const refetch = () => calendarRef.current?.getApi().refetchEvents()
 
     return (
-        <Box>
+        // Шапка дней недели у FullCalendar остаётся белой в тёмной теме,
+        // поэтому названия дней красим в цвет фона приложения, чтобы они читались.
+        <Box css={{ '& .fc-col-header-cell-cushion': { color: 'var(--chakra-colors-back)' } }}>
             <Flex gap="2" wrap="wrap" mb="4">
                 {ALL_STATUSES.map((status) => {
                     const meta = RENTAL_STATUS_MAP[status]
