@@ -33,9 +33,10 @@ type DatePickerFieldProps = {
     value: string
     onChange: (value: string) => void
     min?: string
+    confirmed: boolean
 }
 
-const DatePickerField = ({ value, onChange, min }: DatePickerFieldProps) => {
+const DatePickerField = ({ value, onChange, min, confirmed }: DatePickerFieldProps) => {
     const inputRef = useRef<HTMLInputElement | null>(null)
 
     const openPicker = () => {
@@ -66,7 +67,10 @@ const DatePickerField = ({ value, onChange, min }: DatePickerFieldProps) => {
             }}
         >
             <Flex
-                bg="back"
+                bg={confirmed ? 'green.500/10' : 'red.500/10'}
+                borderWidth="1.5px"
+                borderColor={confirmed ? 'green.500/60' : 'red.500/50'}
+                transition="background 0.2s, border-color 0.2s"
                 rounded="full"
                 h="40px"
                 px="14px"
@@ -107,6 +111,10 @@ export default function Header({
         setEndDate,
         setStartTime,
         setEndTime,
+        startDateConfirmed,
+        endDateConfirmed,
+        confirmStartDate,
+        confirmEndDate,
         validationError,
     } = useTripDates()
 
@@ -181,8 +189,10 @@ export default function Header({
                             <Flex gap="10px" direction={{ base: 'row' }}>
                                 <DatePickerField
                                     value={startDate}
+                                    confirmed={startDateConfirmed}
                                     onChange={(value) => {
                                         setStartDate(value)
+                                        confirmStartDate()
                                         if (endDate < value) setEndDate(value)
                                     }}
                                 />
@@ -207,7 +217,11 @@ export default function Header({
                                 <DatePickerField
                                     value={endDate}
                                     min={startDate}
-                                    onChange={(value) => setEndDate(value < startDate ? startDate : value)}
+                                    confirmed={endDateConfirmed}
+                                    onChange={(value) => {
+                                        setEndDate(value < startDate ? startDate : value)
+                                        confirmEndDate()
+                                    }}
                                 />
                                 <Input
                                     type="time"

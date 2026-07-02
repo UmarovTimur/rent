@@ -43,6 +43,7 @@ export default function ProductPage({ product }: ProductPageProps) {
         startTime,
         endTime,
         hasValidRange,
+        datesConfirmed,
         rentalStartIso,
         rentalEndIso,
         getTripDurationDays,
@@ -264,7 +265,7 @@ export default function ProductPage({ product }: ProductPageProps) {
                                 </Mark>
                             </Flex>
                             <Text opacity={0.8} fontSize="sm">
-                                {hasValidRange
+                                {hasValidRange && datesConfirmed
                                     ? `${formattedStartDate} ${startTime} — ${formattedEndDate} ${endTime}`
                                     : 'Выберите даты и время аренды на главном экране'}
                             </Text>

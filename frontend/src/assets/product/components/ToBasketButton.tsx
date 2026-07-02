@@ -19,10 +19,10 @@ export default function ToBasketButton({
 }: ToBasketProps) {
     const { onClose } = useDrawer()
     const { addToBasket, loading } = useBasketContext()
-    const { hasValidRange, rentalStartIso, rentalEndIso } = useTripDates()
+    const { hasValidRange, datesConfirmed, rentalStartIso, rentalEndIso } = useTripDates()
 
     const handleClick = async () => {
-        if (!hasValidRange || !rentalStartIso || !rentalEndIso) return
+        if (!hasValidRange || !datesConfirmed || !rentalStartIso || !rentalEndIso) return
 
         const success = await addToBasket(
             productId,
@@ -34,7 +34,7 @@ export default function ToBasketButton({
         if (success) onClose()
     }
 
-    const isDisabled = !hasValidRange || disabled || loading
+    const isDisabled = !hasValidRange || !datesConfirmed || disabled || loading
 
     return (
         <CloseButton

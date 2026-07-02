@@ -14,6 +14,11 @@ type TripDatesContextType = {
     setEndDate: (value: string) => void
     setStartTime: (value: string) => void
     setEndTime: (value: string) => void
+    startDateConfirmed: boolean
+    endDateConfirmed: boolean
+    datesConfirmed: boolean
+    confirmStartDate: () => void
+    confirmEndDate: () => void
     getTripDurationDays: () => number | null
     hasValidRange: boolean
     validationError: string | null
@@ -39,6 +44,8 @@ export const TripDatesProvider = ({ children }: { children: React.ReactNode }) =
     const [endDate, setEndDate] = useState<string>(toInputDate(tomorrow))
     const [startTime, setStartTime] = useState<string>('12:00')
     const [endTime, setEndTime] = useState<string>('12:00')
+    const [startDateConfirmed, setStartDateConfirmed] = useState(false)
+    const [endDateConfirmed, setEndDateConfirmed] = useState(false)
 
     const value = useMemo<TripDatesContextType>(() => {
         let validationError: string | null = null
@@ -81,13 +88,18 @@ export const TripDatesProvider = ({ children }: { children: React.ReactNode }) =
             setEndDate,
             setStartTime,
             setEndTime,
+            startDateConfirmed,
+            endDateConfirmed,
+            datesConfirmed: startDateConfirmed && endDateConfirmed,
+            confirmStartDate: () => setStartDateConfirmed(true),
+            confirmEndDate: () => setEndDateConfirmed(true),
             getTripDurationDays,
             hasValidRange,
             validationError,
             rentalStartIso,
             rentalEndIso,
         }
-    }, [startDate, endDate, startTime, endTime])
+    }, [startDate, endDate, startTime, endTime, startDateConfirmed, endDateConfirmed])
 
     return (
         <TripDatesContext.Provider value={value}>
