@@ -3,5 +3,10 @@ export const toWholePrice = (value: number | null | undefined): number => {
     return Math.trunc(value)
 }
 
-export const formatPriceK = (value: number | null | undefined): string =>
-    `${toWholePrice(value)}к`
+export const formatPriceK = (value: number | null | undefined): string => {
+    const n = toWholePrice(value)
+    if (n >= 1_000_000) {
+        return n.toLocaleString('en-US').replace(/,/g, ' ')
+    }
+    return `${Math.round(n / 1000)}к`
+}

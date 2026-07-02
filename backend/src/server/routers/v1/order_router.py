@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Response
 from starlette.responses import JSONResponse
 
 from src.container import container
-from src.services.bot_notification import notify_new_order
+from src.services.bot_notification import notify_client_order_created, notify_new_order
 from src.services.order.interface import OrderServiceI
 from src.services.order.schemas import OrderCreate, OrderResponse, OrderStatus
 from src.services.static import create_message
@@ -27,6 +27,7 @@ async def create_order(
 ) -> JSONResponse:
     order_id = await order_service.create_order(user_id=user_id, order_data=order_data)
     background_tasks.add_task(notify_new_order, order_id)
+    background_tasks.add_task(notify_client_order_created, order_id)
     return JSONResponse(content={"message": create_message.format(entity=order_tag)}, status_code=HTTPStatus.CREATED)
 
 

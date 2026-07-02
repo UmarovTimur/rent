@@ -53,9 +53,11 @@ class ProductService(BaseService, ProductServiceI):
 
     async def get_by_name(self, product_name: str) -> ProductResponse:
         async with self.session() as session:
-            query = select(Product).options(
-                selectinload(Product.category)
-                ).where(Product.name == product_name)
+            query = (
+                select(Product)
+                .options(selectinload(Product.category))
+                .where(Product.name == product_name)
+            )
             result = await session.execute(query)
             product = result.scalar()
             if not product:

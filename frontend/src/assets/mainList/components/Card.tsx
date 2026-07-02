@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useCallback, useState } from 'react'
 import { Text, Flex, Button, Image, Heading, Mark, Box } from '@chakra-ui/react'
 import { Product } from '@/types/Products.ts'
 import { formatPriceK } from '@/utils/price'
@@ -9,7 +9,28 @@ type CardProps = {
 }
 
 export default function Card({ product, onClick }: CardProps) {
-    const imgSrc = product.image_url ? `products/${product.image_url}` : 'shava.png'
+    const [hoverIdx, setHoverIdx] = useState(0)
+
+    const allImages: string[] = [
+        ...(product.image_url ? [`products/${product.image_url}`] : []),
+        ...(product.image_urls ?? []).map(u => `products/${u}`),
+    ]
+    if (allImages.length === 0) allImages.push('shava.png')
+
+    const imgSrc = allImages[hoverIdx]
+    const imgCount = allImages.length
+
+    const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+        if (imgCount <= 1) return
+        const rect = e.currentTarget.getBoundingClientRect()
+        const idx = Math.min(
+            imgCount - 1,
+            Math.floor(((e.clientX - rect.left) / rect.width) * imgCount)
+        )
+        setHoverIdx(idx)
+    }, [imgCount])
+
+    const handleMouseLeave = useCallback(() => setHoverIdx(0), [])
 
     return (
         <Button
@@ -28,14 +49,17 @@ export default function Card({ product, onClick }: CardProps) {
             zIndex="0"
             onClick={onClick}
         >
-            {/* Image */}
+            {/* Image with hover-zone effect */}
             <Box
+                position="relative"
                 flexShrink={0}
                 h={{ base: 'full', md: 'auto' }}
                 w={{ base: '132px', md: 'full' }}
                 marginRight={{ base: '20px', md: '0' }}
                 aspectRatio={{ md: '2/3' }}
                 overflow="hidden"
+                onMouseMove={handleMouseMove}
+                onMouseLeave={handleMouseLeave}
             >
                 <Image
                     src={imgSrc}
@@ -44,7 +68,34 @@ export default function Card({ product, onClick }: CardProps) {
                     alt={product.name}
                     objectFit="cover"
                     display="block"
+                    style={{ transition: 'opacity 0.15s ease' }}
                 />
+
+                {/* Hover zone indicators (thin dots at bottom) */}
+                {imgCount > 1 && (
+                    <Flex
+                        position="absolute"
+                        bottom="5px"
+                        left="0"
+                        right="0"
+                        justify="center"
+                        gap="3px"
+                        pointerEvents="none"
+                    >
+                        {allImages.map((_, i) => (
+                            <Box
+                                key={i}
+                                h="3px"
+                                rounded="full"
+                                bg={i === hoverIdx ? 'white' : 'rgba(255,255,255,0.4)'}
+                                style={{
+                                    width: i === hoverIdx ? '14px' : '4px',
+                                    transition: 'all 0.15s ease',
+                                }}
+                            />
+                        ))}
+                    </Flex>
+                )}
             </Box>
 
             {/* Content */}

@@ -25,6 +25,7 @@ export interface Product {
     description: string
     price: number
     image_url: string | null
+    image_urls: string[]
     proteins?: number
     fats?: number
     carbohydrates?: number

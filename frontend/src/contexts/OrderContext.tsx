@@ -3,12 +3,14 @@ import {
     useContext,
     useState,
     useCallback,
+    useEffect,
     ReactNode,
 } from 'react'
 import { OrderService } from '@/api/OrderService'
 import { PaymentOption } from '@/types/Basket'
 import { Basket } from '@/types/Basket'
 import { toaster } from '@/components/ui/toaster.tsx'
+import { useUserContext } from '@/contexts/UserContext'
 
 type OrderFormState = {
     firstName: string
@@ -39,6 +41,8 @@ export const OrderProvider = ({
     children: ReactNode
     userId: number
 }) => {
+    const { user } = useUserContext()
+
     const [formState, setFormState] = useState<OrderFormState>({
         firstName: '',
         phone: '',
@@ -46,6 +50,15 @@ export const OrderProvider = ({
         address: '',
         paymentOption: 'cash',
     })
+
+    useEffect(() => {
+        if (!user) return
+        setFormState((prev) => ({
+            ...prev,
+            firstName: prev.firstName || user.first_name || '',
+            phone: prev.phone || user.phone_number || '',
+        }))
+    }, [user])
 
     const [errors, setErrors] = useState<Record<string, string>>({})
     const [isSubmitting, setIsSubmitting] = useState(false)
@@ -155,8 +168,8 @@ export const OrderProvider = ({
 
     const resetForm = useCallback(() => {
         setFormState({
-            firstName: '',
-            phone: '',
+            firstName: user?.first_name || '',
+            phone: user?.phone_number || '',
             comment: '',
             address: '',
             paymentOption: 'cash',
@@ -164,7 +177,7 @@ export const OrderProvider = ({
         setErrors({})
         setSubmitError(null)
         setIsSuccess(false)
-    }, [])
+    }, [user])
 
     return (
         <OrderContext.Provider

@@ -1,7 +1,7 @@
 import json
 from typing import Any
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from src.services.category.schemas import CategoryResponse
 
@@ -24,10 +24,16 @@ class ProductResponse(BaseModel):
     description: str
     price: int
     image_url: str | None
+    image_urls: list[str] = []
     category: CategoryResponse
 
     class Config:
         from_attributes = True
+
+    @field_validator("image_urls", mode="before")
+    @classmethod
+    def null_to_list(cls, v: object) -> list:
+        return v if isinstance(v, list) else []
 
 
 class ProductUpdate(BaseModel):

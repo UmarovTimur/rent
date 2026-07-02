@@ -1,6 +1,5 @@
 import {
     Drawer,
-    Image,
     Heading,
     Flex,
     CloseButton,
@@ -13,6 +12,7 @@ import { IoClose } from 'react-icons/io5'
 import { Product } from '@/types/Products'
 import CustomNumberInput from './components/CustomNumberInput'
 import ToBasketButton from './components/ToBasketButton'
+import ImageSlider from './components/ImageSlider'
 import { useDrawer } from '@/contexts/DrawerContext'
 import { useBasketContext } from '@/contexts/BasketContext'
 import { useTripDates } from '@/contexts/TripDatesContext'
@@ -188,16 +188,17 @@ export default function ProductPage({ product }: ProductPageProps) {
                     maxW={{ base: '100%', lg: '920px' }}
                     mx="auto"
                 >
-                    <Image
-                        src={
-                            product.image_url
-                                ? `products/${product.image_url}`
-                                : 'shava.png'
-                        }
+                    <ImageSlider
+                        images={(() => {
+                            const all = [
+                                ...(product.image_url ? [`products/${product.image_url}`] : []),
+                                ...(product.image_urls ?? []).map(u => `products/${u}`),
+                            ]
+                            return all.length > 0 ? all : ['shava.png']
+                        })()}
                         rounded={{ base: '32px 32px 0 0', sm: '42px 42px 0 0' }}
-                        width={{ base: '80%', sm: '70%', md: '52%', lg: '40%' }}
-                        maxW="360px"
-                        zIndex="base"
+                        width={{ base: '80%', sm: '70%', md: '72%', lg: '60%' }}
+                        maxW={{ base: '360px', md: '560px' }}
                         alt={product.name}
                     />
                     <Heading
@@ -205,7 +206,7 @@ export default function ProductPage({ product }: ProductPageProps) {
                         fontWeight="800"
                         color="text"
                         textAlign="center"
-                        mt={{ base: '-30px', md: '-38px' }}
+                        mt={{ base: '-30px', md: '10px' }}
                         pos="relative"
                         w="full"
                         px={{ base: '36px', md: '0' }}

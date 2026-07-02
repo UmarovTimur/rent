@@ -43,6 +43,7 @@ class OrderItemResponse(BaseModel):
 
 class OrderResponse(BaseModel):
     order_id: int
+    user_id: int
     basket_id: int
     order_date: datetime
     payment_option: str

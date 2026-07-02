@@ -229,7 +229,6 @@ export const BasketProvider = ({
             !hasValidRange ||
             !rentalStartIso ||
             !rentalEndIso ||
-            loading ||
             autoSyncInProgressRef.current
         ) {
             return
@@ -367,9 +366,7 @@ export const BasketProvider = ({
                 console.error('Ошибка пересчета корзины при смене дат:', err)
             } finally {
                 autoSyncInProgressRef.current = false
-                if (!cancelled) {
-                    setLoading(false)
-                }
+                setLoading(false)
             }
         }
 
@@ -378,7 +375,7 @@ export const BasketProvider = ({
         return () => {
             cancelled = true
         }
-    }, [basket, hasValidRange, loading, rentalStartIso, rentalEndIso, userId])
+    }, [basket, hasValidRange, rentalStartIso, rentalEndIso, userId])
 
     useEffect(() => {
         void refreshBasket()

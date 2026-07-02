@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, DateTime, Float, ForeignKey, Integer, String
+from sqlalchemy import Boolean, CheckConstraint, DateTime, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.clients.database.base import Base
@@ -21,6 +21,8 @@ class Order(Base):
     address: Mapped[str] = mapped_column(String(50), nullable=True)
     phone: Mapped[str] = mapped_column(String(50), nullable=True)
     discount: Mapped[float] = mapped_column(nullable=True)
+    pickup_reminder_sent: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
+    return_reminder_sent: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
 
     items: Mapped[list["OrderItem"]] = relationship(
         "OrderItem", back_populates="order", cascade="all, delete-orphan"

@@ -5,7 +5,7 @@ export interface User {
     user_id: number
     first_name: string
     username?: string
-    phone?: string
+    phone_number?: string
     address?: string
     is_admin: boolean
     coins: number

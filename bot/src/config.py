@@ -26,6 +26,16 @@ API_TOKEN = _get_bot_token()
 bot = Bot(API_TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=10)
 
+ADMIN_CHAT_ID = int(getenv("ADMIN_CHAT_ID") or 0)
+PAYMENT_CARD_NUMBER = getenv("PAYMENT_CARD_NUMBER", "")
+DEPOSIT_AMOUNT = int(getenv("DEPOSIT_AMOUNT", 50000))
+# DEPOSIT_PERCENT = int(getenv("DEPOSIT_PERCENT", 20))  # процент от суммы заказа
+
+
+def fmt_price(amount: int | float) -> str:
+    """Format price with space thousands separator: 2215000 → '2 215 000'"""
+    return f"{int(amount):,}".replace(",", " ")
+
 # API urls
 host = _get_backend_host()
 base_api_url = f"{host}/api/v1"

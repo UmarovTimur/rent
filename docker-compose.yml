@@ -60,6 +60,23 @@ services:
     env_file:
       - .env
 
+  celery:
+    build:
+      context: backend
+    container_name: celery
+    command: sh -c "celery -A src.celery_app:celery_app worker -B --loglevel=info"
+    depends_on:
+      - db
+      - redis
+      - backend
+    volumes:
+      - ./backend:/backend
+    env_file:
+      - .env
+    networks:
+      - my_network
+    restart: unless-stopped
+
   frontend:
     image: node:22-alpine
     container_name: frontend
@@ -90,7 +107,7 @@ services:
   adminer:
     image: adminer
     ports:
-      - "8080:8080"
+      - "8083:8080"
     networks:
       - my_network
     depends_on:

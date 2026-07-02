@@ -1,4 +1,5 @@
 from sqlalchemy import ForeignKey, Integer, String
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.clients.database.base import Base
@@ -14,6 +15,7 @@ class Product(Base):
     description: Mapped[str] = mapped_column(nullable=False)
     price: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     image_url: Mapped[str] = mapped_column(nullable=True)
+    image_urls: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=True, default=list)
 
     category: Mapped["Category"] = relationship(back_populates="products")  # noqa: F821
     basket_items: Mapped[list["BasketItem"]] = relationship(

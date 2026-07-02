@@ -119,6 +119,7 @@ class OrderService(BaseService, OrderServiceI):
     def _to_order_response(order: Order) -> OrderResponse:
         return OrderResponse(
             order_id=order.order_id,
+            user_id=order.user_id,
             basket_id=order.basket_id,
             order_date=order.order_date,
             payment_option=order.payment_option,
