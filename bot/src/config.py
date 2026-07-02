@@ -29,6 +29,8 @@ REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=10)
 ADMIN_CHAT_ID = int(getenv("ADMIN_CHAT_ID") or 0)
 PAYMENT_CARD_NUMBER = getenv("PAYMENT_CARD_NUMBER", "")
 DEPOSIT_AMOUNT = int(getenv("DEPOSIT_AMOUNT", 50000))
+FRONTEND_URL = (getenv("FRONTEND_URL") or "").strip().rstrip("/")
+admin_calendar_url = f"{FRONTEND_URL}/app/admin" if FRONTEND_URL else ""
 # DEPOSIT_PERCENT = int(getenv("DEPOSIT_PERCENT", 20))  # процент от суммы заказа
 
 

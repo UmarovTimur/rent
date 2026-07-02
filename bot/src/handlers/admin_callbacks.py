@@ -5,12 +5,13 @@ from http import HTTPStatus
 import aiohttp
 from aiogram import F, Router
 from aiogram.filters import Command
-from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message
+from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message, WebAppInfo
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from src.config import (
     ADMIN_CHAT_ID,
     REQUEST_TIMEOUT,
+    admin_calendar_url,
     bot,
     change_status_url,
     fmt_price,
@@ -290,3 +291,22 @@ async def orders_menu(message: Message) -> None:
         await message.answer("Эта команда доступна только администраторам.")
         return
     await message.answer("📋 Выберите фильтр заказов:", reply_markup=_filter_keyboard())
+
+
+# ─── /admin_calendar command ──────────────────────────────────────────────────
+
+@router.message(Command("admin_calendar"))
+async def admin_calendar(message: Message) -> None:
+    user_id = message.from_user.id if message.from_user else None
+    if not user_id:
+        return
+    if not await _is_admin(user_id):
+        await message.answer("Эта команда доступна только администраторам.")
+        return
+    if not admin_calendar_url:
+        await message.answer("Календарь не настроен: не задан FRONTEND_URL.")
+        return
+
+    builder = InlineKeyboardBuilder()
+    builder.button(text="📅 Открыть календарь аренды", web_app=WebAppInfo(url=admin_calendar_url))
+    await message.answer("Календарь аренды:", reply_markup=builder.as_markup())
