@@ -10,7 +10,9 @@ from src.services.order.service import OrderService
 from src.services.product.service import ProductService
 from src.services.rental.service import RentalService
 from src.services.user.service import UserService
+from src.settings.admin import AdminSettings
 from src.settings.database import DatabaseSettings
+from src.settings.telegram import TelegramSettings
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
@@ -27,6 +29,8 @@ if TYPE_CHECKING:
 
 class DependencyContainer(containers.DeclarativeContainer):
     database_settings: Singleton["DatabaseSettings"] = Singleton(DatabaseSettings)
+    telegram_settings: Singleton["TelegramSettings"] = Singleton(TelegramSettings)
+    admin_settings: Singleton["AdminSettings"] = Singleton(AdminSettings)
     async_engine: Singleton["AsyncEngine"] = Singleton(
         async_engine,
         database_settings=database_settings.provided,

@@ -54,3 +54,8 @@ class RentalUnavailableError(BaseError):
 class InvalidRentalPeriodError(BaseError):
     def __init__(self, message: str = "Invalid rental period"):
         super().__init__(message)
+
+
+class InvalidStatusTransitionError(BaseError):
+    def __init__(self, message: str = "Invalid status transition"):
+        super().__init__(message)

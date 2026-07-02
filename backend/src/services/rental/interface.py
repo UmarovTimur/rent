@@ -4,7 +4,12 @@ from typing import Protocol
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.services.rental.schemas import ProductRentalCalendarResponse
+from src.services.order.schemas import OrderStatus
+from src.services.rental.schemas import (
+    ProductRentalCalendarResponse,
+    RentalOrderDetail,
+    RentalOrderSummary,
+)
 
 
 class RentalServiceI(Protocol):
@@ -26,3 +31,20 @@ class RentalServiceI(Protocol):
         rental_start: datetime | None,
         rental_end: datetime | None,
     ) -> None: ...
+
+    @abstractmethod
+    def get_allowed_transitions(self, status: str) -> list[str]: ...
+
+    @abstractmethod
+    async def list_admin_rentals(
+        self,
+        date_from: datetime,
+        date_to: datetime,
+        status: OrderStatus | None = None,
+    ) -> list[RentalOrderSummary]: ...
+
+    @abstractmethod
+    async def get_admin_rental(self, order_id: int) -> RentalOrderDetail: ...
+
+    @abstractmethod
+    async def update_rental_status(self, order_id: int, new_status: OrderStatus) -> None: ...

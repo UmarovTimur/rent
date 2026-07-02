@@ -6,18 +6,42 @@ from datetime import datetime, timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from src.clients.database.models.order import Order, OrderItem
 from src.clients.database.models.rental import ProductRental, ProductRentalSlot
+from src.clients.database.models.user import User
 from src.services.base import BaseService
 from src.services.errors import (
     InvalidRentalPeriodError,
+    InvalidStatusTransitionError,
+    OrderNotFoundError,
     RentalConfigNotFoundError,
     RentalUnavailableError,
 )
 from src.services.order.schemas import OrderStatus
 from src.services.rental.interface import RentalServiceI
-from src.services.rental.schemas import ProductRentalCalendarResponse, ProductRentalCalendarSlot
+from src.services.rental.schemas import (
+    ProductRentalCalendarResponse,
+    ProductRentalCalendarSlot,
+    RentalOrderDetail,
+    RentalOrderItemBrief,
+    RentalOrderSummary,
+)
+
+ALLOWED_TRANSITIONS: dict[str, set[str]] = {
+    OrderStatus.CREATED.value: {OrderStatus.IN_PROGRESS.value, OrderStatus.CANCELED.value},
+    OrderStatus.IN_PROGRESS.value: {
+        OrderStatus.TAKEN.value,
+        OrderStatus.PAUSED.value,
+        OrderStatus.CANCELED.value,
+        OrderStatus.COMPLETED.value,
+    },
+    OrderStatus.TAKEN.value: {OrderStatus.COMPLETED.value, OrderStatus.CANCELED.value},
+    OrderStatus.PAUSED.value: {OrderStatus.IN_PROGRESS.value, OrderStatus.CANCELED.value},
+    OrderStatus.COMPLETED.value: {OrderStatus.IN_PROGRESS.value},
+    OrderStatus.CANCELED.value: set(),
+}
 
 
 @dataclass(slots=True)
@@ -128,6 +152,115 @@ class RentalService(BaseService, RentalServiceI):
                 raise RentalUnavailableError(
                     f"Not enough quantity for rental window {window.slot_start.isoformat()} - {window.slot_end.isoformat()}"
                 )
+
+    def get_allowed_transitions(self, status: str) -> list[str]:
+        return sorted(ALLOWED_TRANSITIONS.get(status, set()))
+
+    async def list_admin_rentals(
+        self,
+        date_from: datetime,
+        date_to: datetime,
+        status: OrderStatus | None = None,
+    ) -> list[RentalOrderSummary]:
+        self._validate_period(date_from, date_to)
+
+        async with self.session() as session:
+            stmt = (
+                select(Order)
+                .join(OrderItem, OrderItem.order_id == Order.order_id)
+                .where(
+                    OrderItem.rental_start.is_not(None),
+                    OrderItem.rental_end.is_not(None),
+                    OrderItem.rental_start < date_to,
+                    OrderItem.rental_end > date_from,
+                )
+                .options(selectinload(Order.items).selectinload(OrderItem.product))
+                .distinct()
+            )
+            if status is not None:
+                stmt = stmt.where(Order.status == status.value)
+
+            result = await session.execute(stmt)
+            orders = result.scalars().unique().all()
+
+            users_by_id = await self._get_users_by_id(session, {order.user_id for order in orders})
+
+            return [self._to_rental_summary(order, users_by_id.get(order.user_id)) for order in orders]
+
+    async def get_admin_rental(self, order_id: int) -> RentalOrderDetail:
+        async with self.session() as session:
+            stmt = (
+                select(Order)
+                .where(Order.order_id == order_id)
+                .options(selectinload(Order.items).selectinload(OrderItem.product))
+            )
+            result = await session.execute(stmt)
+            order = result.scalar_one_or_none()
+            if not order or not self._rental_items(order):
+                raise OrderNotFoundError
+
+            users_by_id = await self._get_users_by_id(session, {order.user_id})
+            summary = self._to_rental_summary(order, users_by_id.get(order.user_id))
+
+            return RentalOrderDetail(
+                **summary.model_dump(),
+                order_date=order.order_date,
+                payment_option=order.payment_option,
+                address=order.address,
+                comment=order.comment,
+                allowed_transitions=self.get_allowed_transitions(order.status),
+            )
+
+    async def update_rental_status(self, order_id: int, new_status: OrderStatus) -> None:
+        async with self.session() as session:
+            order = await session.get(Order, order_id)
+            if not order:
+                raise OrderNotFoundError
+
+            allowed = ALLOWED_TRANSITIONS.get(order.status, set())
+            if new_status.value not in allowed:
+                raise InvalidStatusTransitionError(
+                    f"Cannot transition order from '{order.status}' to '{new_status.value}'"
+                )
+
+            order.status = new_status.value
+            await session.commit()
+
+    async def _get_users_by_id(self, session: AsyncSession, user_ids: set[int]) -> dict[int, User]:
+        if not user_ids:
+            return {}
+        result = await session.execute(select(User).where(User.user_id.in_(user_ids)))
+        return {user.user_id: user for user in result.scalars().all()}
+
+    @staticmethod
+    def _rental_items(order: Order) -> list[OrderItem]:
+        return [item for item in order.items if item.rental_start is not None and item.rental_end is not None]
+
+    def _to_rental_summary(self, order: Order, user: User | None) -> RentalOrderSummary:
+        rental_items = self._rental_items(order)
+        return RentalOrderSummary(
+            order_id=order.order_id,
+            telegram_id=order.user_id,
+            first_name=(user.first_name if user else None) or order.first_name,
+            username=user.username if user else None,
+            phone=(user.phone_number if user else None) or order.phone,
+            status=OrderStatus(order.status),
+            rental_start=min(item.rental_start for item in rental_items),
+            rental_end=max(item.rental_end for item in rental_items),
+            total_price=order.total_price,
+            items=[
+                RentalOrderItemBrief(
+                    order_item_id=item.order_item_id,
+                    product_id=item.product_id,
+                    product_name=item.product.name if item.product else None,
+                    quantity=item.quantity,
+                    unit_price=item.unit_price,
+                    rental_start=item.rental_start,
+                    rental_end=item.rental_end,
+                )
+                for item in order.items
+            ],
+        )
 
     async def _compute_windows(
         self,

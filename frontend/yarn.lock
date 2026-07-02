@@ -489,6 +489,33 @@
   resolved "https://registry.npmjs.org/@fontsource-variable/montserrat/-/montserrat-5.2.5.tgz"
   integrity sha512-Mfg/AiXwhPLAAgLCqzugFUs/PLprbHzXMhPVrf35q5od4/wHjVqtm0bI000tKGUGDZ3gDpId/+cqufcYHAAAEQ==
 
+"@fullcalendar/core@^6.1.21", "@fullcalendar/core@~6.1.21":
+  version "6.1.21"
+  resolved "https://registry.npmjs.org/@fullcalendar/core/-/core-6.1.21.tgz"
+  integrity sha512-t3u/+sqh3Iq7TWtUnVLcGDUE6OWZh0UD3c04bI/l7lSLAgAKr3kngBmhHiQD1QXpwC8ZN5iNqG7a7gOVixhSKQ==
+  dependencies:
+    preact "~10.12.1"
+
+"@fullcalendar/daygrid@^6.1.21":
+  version "6.1.21"
+  resolved "https://registry.npmjs.org/@fullcalendar/daygrid/-/daygrid-6.1.21.tgz"
+  integrity sha512-QYb1y40RGYLlOxKpYWg8O+7njEnKnFG8Tt7qjnubJGR35s1phQg67E+81y2TyAbbm59p2JFOCXGDk9t6KDujIA==
+
+"@fullcalendar/interaction@^6.1.21":
+  version "6.1.21"
+  resolved "https://registry.npmjs.org/@fullcalendar/interaction/-/interaction-6.1.21.tgz"
+  integrity sha512-WPYpqtljDWmU0Xm2cOtFrLlocgxv7cgkOppj34Q6OUUat8a6Cnd6kYo2JR+irP223PE5lBYHFNp1qh7SIpJc0w==
+
+"@fullcalendar/list@^6.1.21":
+  version "6.1.21"
+  resolved "https://registry.npmjs.org/@fullcalendar/list/-/list-6.1.21.tgz"
+  integrity sha512-2rpIhs5pJmV7jyk4oX4bckNqurt6iHcsweE3FDYDdNpmRukPrARnyQYcaVFNVw2bnBFeR/jQW/St2MlauxF3GQ==
+
+"@fullcalendar/react@^6.1.21":
+  version "6.1.21"
+  resolved "https://registry.npmjs.org/@fullcalendar/react/-/react-6.1.21.tgz"
+  integrity sha512-TLpmGUd5k/PMdCh8XbeFC9PW9wuGvMms1oCxWgXyjK3EFPXAAd0PLfcvwKdyxoAS5eK1E4RJFkjMHvsYHpimcg==
+
 "@humanfs/core@^0.19.1":
   version "0.19.1"
   resolved "https://registry.npmjs.org/@humanfs/core/-/core-0.19.1.tgz"
@@ -2744,6 +2771,11 @@ postcss@^8.5.3:
     picocolors "^1.1.1"
     source-map-js "^1.2.1"
 
+preact@~10.12.1:
+  version "10.12.1"
+  resolved "https://registry.npmjs.org/preact/-/preact-10.12.1.tgz"
+  integrity sha512-l8386ixSsBdbreOAkqtrwqHwdvR35ID8c3rKPa8lCWuO86dBi32QWHV4vfsZK1utLLFMvw+Z5Ad4XLkZzchscg==
+
 prelude-ls@^1.2.1:
   version "1.2.1"
   resolved "https://registry.npmjs.org/prelude-ls/-/prelude-ls-1.2.1.tgz"
@@ -2786,7 +2818,7 @@ queue-microtask@^1.2.2:
   resolved "https://registry.npmjs.org/queue-microtask/-/queue-microtask-1.2.3.tgz"
   integrity sha512-NuaNSa6flKT5JaSYQzJok04JzTL1CA6aGhv5rfLW3PgqA+M2ChpZQnAC8h8i4ZFkBS8X5RqkDBHA7r4hej3K9A==
 
-"react-dom@^16.8 || ^17 || ^18 || ^19 || ^19.0.0-rc", "react-dom@^17.0.0 || ^18.0.0 || ^19.0.0", "react-dom@^18.0.0 || ^19.0.0", react-dom@^19.0.0, "react-dom@>=16.4 || 17 || 18 || 20", react-dom@>=18, react-dom@>=18.0.0:
+"react-dom@^16.7.0 || ^17 || ^18 || ^19", "react-dom@^16.8 || ^17 || ^18 || ^19 || ^19.0.0-rc", "react-dom@^17.0.0 || ^18.0.0 || ^19.0.0", "react-dom@^18.0.0 || ^19.0.0", react-dom@^19.0.0, "react-dom@>=16.4 || 17 || 18 || 20", react-dom@>=18, react-dom@>=18.0.0:
   version "19.1.0"
   resolved "https://registry.npmjs.org/react-dom/-/react-dom-19.1.0.tgz"
   integrity sha512-Xs1hdnE+DyKgeHJeJznQmYMIBG3TKIHJJT95Q58nHLSrElKlGQqDTR2HQ9fx5CN/Gk6Vh/kupBTDLU11/nDk/g==
@@ -2813,7 +2845,7 @@ react-refresh@^0.17.0:
   resolved "https://registry.npmjs.org/react-refresh/-/react-refresh-0.17.0.tgz"
   integrity sha512-z6F7K9bV85EfseRCp2bzrpyQ0Gkw1uLoCel9XBVWPg/TjRj94SkJzUTGfOa4bs7iJvBWtQG0Wq7wnI0syw3EBQ==
 
-react@*, "react@^16.8 || ^17 || ^18 || ^19 || ^19.0.0-rc", "react@^17.0.0 || ^18.0.0 || ^19.0.0", "react@^18.0.0 || ^19.0.0", react@^19.0.0, react@^19.1.0, "react@>=16.4 || 17 || 18 || 20", react@>=16.8.0, react@>=18, react@>=18.0.0:
+react@*, "react@^16.7.0 || ^17 || ^18 || ^19", "react@^16.8 || ^17 || ^18 || ^19 || ^19.0.0-rc", "react@^17.0.0 || ^18.0.0 || ^19.0.0", "react@^18.0.0 || ^19.0.0", react@^19.0.0, react@^19.1.0, "react@>=16.4 || 17 || 18 || 20", react@>=16.8.0, react@>=18, react@>=18.0.0:
   version "19.1.0"
   resolved "https://registry.npmjs.org/react/-/react-19.1.0.tgz"
   integrity sha512-FS+XFBNvn3GTAWq26joslQgWNoFu08F4kl0J4CgdNKADkdSGXQyTCnKteIAJy96Br6YbpEU1LSzV5dYtjMkMDg==

@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from src.server.routers.v1 import (
+    admin_rental_router,
     auth_router,
     basket_router,
     category_router,
@@ -18,3 +19,4 @@ api_v1_router.include_router(rental_router.router)
 api_v1_router.include_router(basket_router.router)
 api_v1_router.include_router(order_router.router)
 api_v1_router.include_router(user_router.router)
+api_v1_router.include_router(admin_rental_router.router)

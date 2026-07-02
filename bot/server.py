@@ -59,6 +59,17 @@ async def _handle_return_reminder(request: web.Request) -> web.Response:
     return web.Response(text="ok")
 
 
+async def _handle_status_changed(request: web.Request) -> web.Response:
+    try:
+        data = await request.json()
+        order_id = _order_id_from(data)
+    except Exception:
+        return web.Response(status=400, text="invalid payload")
+
+    asyncio.create_task(_notify_status_changed(order_id))
+    return web.Response(text="ok")
+
+
 async def _fetch_order(order_id: int) -> dict | None:
     from src.config import REQUEST_TIMEOUT, get_order_url
     try:
@@ -152,6 +163,21 @@ async def _notify_return(order_id: int) -> None:
             logger.exception("Failed to send return reminder to admin chat %s", ADMIN_CHAT_ID)
 
 
+async def _notify_status_changed(order_id: int) -> None:
+    from src.config import bot
+    from src.handlers.admin_callbacks import _STATUS_LABEL
+    order = await _fetch_order(order_id)
+    if not order:
+        return
+
+    status_label = _STATUS_LABEL.get(order.get("status", ""), order.get("status", ""))
+    text = f"ℹ️ <b>Статус вашего заказа #{order_id} изменён:</b> {status_label}"
+    try:
+        await bot.send_message(order["user_id"], text)
+    except Exception:
+        logger.exception("Failed to send status_changed notification to user %s", order.get("user_id"))
+
+
 async def run_http_server():
     app = web.Application()
     app.router.add_get("/", lambda r: web.Response(text="Bot is running"))
@@ -159,6 +185,7 @@ async def run_http_server():
     app.router.add_post("/notify/client_order_created", _handle_client_order_created)
     app.router.add_post("/notify/pickup_reminder", _handle_pickup_reminder)
     app.router.add_post("/notify/return_reminder", _handle_return_reminder)
+    app.router.add_post("/notify/status_changed", _handle_status_changed)
 
     runner = web.AppRunner(app)
     await runner.setup()

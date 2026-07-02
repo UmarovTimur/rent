@@ -2,6 +2,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field, model_validator
 
+from src.services.order.schemas import OrderStatus
+
 
 class ProductRentalCalendarSlot(BaseModel):
     slot_start: datetime
@@ -36,3 +38,41 @@ class RentalAvailabilityCheck(BaseModel):
         if self.rental_end <= self.rental_start:
             raise ValueError("rental_end must be later than rental_start")
         return self
+
+
+class RentalOrderItemBrief(BaseModel):
+    order_item_id: int
+    product_id: int
+    product_name: str | None = None
+    quantity: int
+    unit_price: int
+    rental_start: datetime | None
+    rental_end: datetime | None
+
+
+class RentalOrderSummary(BaseModel):
+    order_id: int
+    telegram_id: int
+    first_name: str | None
+    username: str | None
+    phone: str | None
+    status: OrderStatus
+    rental_start: datetime
+    rental_end: datetime
+    total_price: int
+    items: list[RentalOrderItemBrief]
+
+    class Config:
+        from_attributes = True
+
+
+class RentalOrderDetail(RentalOrderSummary):
+    order_date: datetime
+    payment_option: str
+    address: str | None
+    comment: str | None
+    allowed_transitions: list[str]
+
+
+class RentalStatusUpdate(BaseModel):
+    status: OrderStatus

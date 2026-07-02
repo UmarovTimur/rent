@@ -35,3 +35,7 @@ async def notify_pickup_reminder(order_id: int) -> None:
 
 async def notify_return_reminder(order_id: int) -> None:
     await _post("/notify/return_reminder", {"order_id": order_id})
+
+
+async def notify_status_changed(order_id: int) -> None:
+    await _post("/notify/status_changed", {"order_id": order_id})
