@@ -25,6 +25,7 @@ declare global {
                     user: { id: number; first_name: string; username?: string }
                 }
                 ready: () => void
+                close: () => void
             }
         }
     }
