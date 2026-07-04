@@ -1,12 +1,20 @@
 from abc import abstractmethod
 from typing import Protocol
 
-from src.services.basket.schemas import BasketItemCreate, BasketResponse, QuantityUpdate
+from src.services.basket.schemas import (
+    BasketDatesUpdate,
+    BasketItemCreate,
+    BasketResponse,
+    QuantityUpdate,
+)
 
 
 class BasketServiceI(Protocol):
     @abstractmethod
     async def get_user_basket(self, user_id: int) -> BasketResponse: ...
+
+    @abstractmethod
+    async def set_basket_dates(self, user_id: int, dates: BasketDatesUpdate) -> None: ...
 
     @abstractmethod
     async def add_item(self, user_id: int, item_data: BasketItemCreate) -> None: ...

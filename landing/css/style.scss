@@ -434,6 +434,9 @@ h1, h2, h3, h4 {
     font-size: 0.72rem;
     padding: 5px 9px;
     border-radius: 999px;
+    // Чисто декоративная подсказка поверх фото. Без этого тап по ней
+    // попадает в span, а Viewer слушает только сам <img> — и просмотр не открывается.
+    pointer-events: none;
   }
 
   figcaption {

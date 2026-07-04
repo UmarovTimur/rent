@@ -11,11 +11,26 @@ class ProductCreate(BaseModel):
     description: str
     category_id: int
     price: int = Field(..., ge=0)
+    is_addon: bool = False
+    price_mode: str = "per_day"
 
     @model_validator(mode="before")
     @classmethod
     def to_py_dict(cls, data: Any) -> dict[str, Any]:
         return json.loads(data)
+
+
+class AddonResponse(BaseModel):
+    """Lightweight add-on view offered on a parent product."""
+
+    product_id: int
+    name: str
+    price: int
+    price_mode: str
+    image_url: str | None = None
+
+    class Config:
+        from_attributes = True
 
 
 class ProductResponse(BaseModel):
@@ -25,6 +40,8 @@ class ProductResponse(BaseModel):
     price: int
     image_url: str | None
     image_urls: list[str] = []
+    is_addon: bool = False
+    price_mode: str = "per_day"
     category: CategoryResponse
 
     class Config:
@@ -41,6 +58,8 @@ class ProductUpdate(BaseModel):
     description: str = Field(None)
     category_id: int = Field(None)
     price: int = Field(None, ge=0)
+    is_addon: bool = Field(None)
+    price_mode: str = Field(None)
 
     @model_validator(mode="before")
     @classmethod

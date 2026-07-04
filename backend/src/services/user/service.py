@@ -7,7 +7,7 @@ from src.clients.database.models.user import User
 from src.services.base import BaseService
 from src.services.errors import UserNotFoundError
 from src.services.user.interface import UserServiceI
-from src.services.user.schemas import UserCreate, UserResponse
+from src.services.user.schemas import UserCreate, UserResponse, UserUpdate
 
 
 class UserService(BaseService, UserServiceI):
@@ -23,6 +23,18 @@ class UserService(BaseService, UserServiceI):
             user = result.scalar_one_or_none()
             if not user:
                 raise UserNotFoundError
+
+        type_adapter = TypeAdapter(UserResponse)
+        return type_adapter.validate_python(user)
+
+    async def update(self, user_id: int, data: UserUpdate) -> UserResponse:
+        async with self.session() as session, session.begin():
+            user = await session.get(User, user_id)
+            if not user:
+                raise UserNotFoundError
+
+            for field, value in data.model_dump(exclude_none=True).items():
+                setattr(user, field, value)
 
         type_adapter = TypeAdapter(UserResponse)
         return type_adapter.validate_python(user)

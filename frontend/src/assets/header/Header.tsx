@@ -12,6 +12,7 @@ import {
 import { useRef } from 'react'
 // import Bonuses from './components/Bonuses.tsx'
 import ProfileButton from './components/ProfileButton.tsx'
+import TashkentClock from './components/TashkentClock.tsx'
 import PromoGroup from './components/promoList/PromoGroup.tsx'
 import CategoriesGroup from './components/categoriesNavigation/CategoriesGroup.tsx'
 import MotionDrawer from '@/assets/MotionDrawer.tsx'
@@ -113,8 +114,12 @@ export default function Header({
         setEndTime,
         startDateConfirmed,
         endDateConfirmed,
+        startTimeConfirmed,
+        endTimeConfirmed,
         confirmStartDate,
         confirmEndDate,
+        confirmStartTime,
+        confirmEndTime,
         validationError,
     } = useTripDates()
 
@@ -124,14 +129,19 @@ export default function Header({
                 position="sticky"
                 top="0"
                 bg="back"
-                p="gap"
+                px="gap"
+                pb="gap"
+                // In Telegram fullscreen mode the native close/⋮ buttons float over
+                // the webview, so lift the header content below them. Both insets
+                // resolve to ~0 in normal mode (and on older clients via fallback).
+                pt="calc(var(--tg-safe-area-inset-top, 0px) + var(--tg-content-safe-area-inset-top, 0px) + 16px)"
                 zIndex="3"
                 w="100%"
             >
                 <Box position="relative">
                     <Flex justify="space-between" alignItems="center">
                         {/* <Bonuses /> */}
-                        <span></span>
+                        <TashkentClock />
                         <MotionDrawer trigger={<ProfileButton />}>
                             <ProfilePage />
                         </MotionDrawer>
@@ -202,8 +212,14 @@ export default function Header({
                                     inputMode="numeric"
                                     step={60}
                                     value={startTime}
-                                    onChange={(e) => setStartTime(e.target.value)}
-                                    bg="back"
+                                    onChange={(e) => {
+                                        setStartTime(e.target.value)
+                                        confirmStartTime()
+                                    }}
+                                    bg={startTimeConfirmed ? 'green.500/10' : 'red.500/10'}
+                                    borderWidth="1.5px"
+                                    borderColor={startTimeConfirmed ? 'green.500/60' : 'red.500/50'}
+                                    transition="background 0.2s, border-color 0.2s"
                                     rounded="full"
                                     w={{ base: '140px' }}
                                     css={{
@@ -230,8 +246,14 @@ export default function Header({
                                     step={60}
                                     value={endTime}
                                     min={startDate === endDate ? startTime : undefined}
-                                    onChange={(e) => setEndTime(e.target.value)}
-                                    bg="back"
+                                    onChange={(e) => {
+                                        setEndTime(e.target.value)
+                                        confirmEndTime()
+                                    }}
+                                    bg={endTimeConfirmed ? 'green.500/10' : 'red.500/10'}
+                                    borderWidth="1.5px"
+                                    borderColor={endTimeConfirmed ? 'green.500/60' : 'red.500/50'}
+                                    transition="background 0.2s, border-color 0.2s"
                                     rounded="full"
                                     w={{ base: '140px' }}
                                     css={{

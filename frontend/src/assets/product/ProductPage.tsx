@@ -5,11 +5,13 @@ import {
     CloseButton,
     Text,
     Box,
+    Center,
     Mark,
 } from '@chakra-ui/react'
 import { useEffect, useMemo, useState } from 'react'
 import { IoClose } from 'react-icons/io5'
-import { Product } from '@/types/Products'
+import { FiCheck } from 'react-icons/fi'
+import { Addon, Product } from '@/types/Products'
 import CustomNumberInput from './components/CustomNumberInput'
 import ToBasketButton from './components/ToBasketButton'
 import ImageSlider from './components/ImageSlider'
@@ -18,10 +20,13 @@ import { useBasketContext } from '@/contexts/BasketContext'
 import { useTripDates } from '@/contexts/TripDatesContext'
 import LimitDialog from './components/LimitDialog'
 import { RentalService } from '@/api/RentalService'
+import { ProductService } from '@/api/ProductService'
+import { formatPriceK } from '@/utils/price'
 import {
     formatInputDate,
     formatRentalDaysRu,
-    getRoundedRentalDaysFromIso,
+    getBilledRentalDaysFromIso,
+    previewLineTotalWithAddons,
 } from '@/utils/rental'
 
 type ProductPageProps = {
@@ -34,6 +39,9 @@ export default function ProductPage({ product }: ProductPageProps) {
     const [showLimitDialog, setShowLimitDialog] = useState(false)
     const [availableQuantity, setAvailableQuantity] = useState<number | null>(null)
     const [availabilityLoading, setAvailabilityLoading] = useState(false)
+    const [addons, setAddons] = useState<Addon[]>([])
+    const [addonAvailable, setAddonAvailable] = useState<Record<number, boolean>>({})
+    const [selectedAddonIds, setSelectedAddonIds] = useState<number[]>([])
 
     const { onClose } = useDrawer()
     const { error, clearError, basketProducts } = useBasketContext()
@@ -47,6 +55,7 @@ export default function ProductPage({ product }: ProductPageProps) {
         rentalStartIso,
         rentalEndIso,
         getTripDurationDays,
+        eveningGraceExplanation,
     } = useTripDates()
 
     const reservedInBasketQuantity = useMemo(() => {
@@ -85,7 +94,9 @@ export default function ProductPage({ product }: ProductPageProps) {
     }, [error])
 
     useEffect(() => {
-        if (!hasValidRange || !rentalStartIso || !rentalEndIso) {
+        // Only probe availability once the user has actually chosen dates;
+        // before that the product is shown but not date-bound.
+        if (!hasValidRange || !datesConfirmed || !rentalStartIso || !rentalEndIso) {
             setAvailableQuantity(null)
             setAvailabilityLoading(false)
             return
@@ -131,7 +142,7 @@ export default function ProductPage({ product }: ProductPageProps) {
         return () => {
             cancelled = true
         }
-    }, [hasValidRange, rentalStartIso, rentalEndIso, selectedProduct.product_id])
+    }, [hasValidRange, datesConfirmed, rentalStartIso, rentalEndIso, selectedProduct.product_id])
 
     useEffect(() => {
         if (remainingAvailableQuantity == null) return
@@ -148,6 +159,57 @@ export default function ProductPage({ product }: ProductPageProps) {
         }
     }, [remainingAvailableQuantity, tempQuantity])
 
+    // Optional add-ons offered on this product.
+    useEffect(() => {
+        let cancelled = false
+        ProductService.fetchAddons(selectedProduct.product_id).then((data) => {
+            if (!cancelled) setAddons(data)
+        })
+        return () => {
+            cancelled = true
+        }
+    }, [selectedProduct.product_id])
+
+    // Per-add-on availability for the chosen window (same calendar as products).
+    useEffect(() => {
+        if (!datesConfirmed || !rentalStartIso || !rentalEndIso || addons.length === 0) {
+            setAddonAvailable({})
+            return
+        }
+        let cancelled = false
+        Promise.all(
+            addons.map(async (a) => {
+                try {
+                    const cal = await RentalService.getProductCalendar(
+                        a.product_id,
+                        rentalStartIso,
+                        rentalEndIso
+                    )
+                    const ok =
+                        cal.slots.length > 0 &&
+                        cal.slots.every(
+                            (s) => s.is_available && s.available_quantity > 0
+                        )
+                    return [a.product_id, ok] as const
+                } catch {
+                    return [a.product_id, false] as const
+                }
+            })
+        ).then((res) => {
+            if (!cancelled) setAddonAvailable(Object.fromEntries(res))
+        })
+        return () => {
+            cancelled = true
+        }
+    }, [addons, datesConfirmed, rentalStartIso, rentalEndIso])
+
+    // Drop any selected add-on that became unavailable for the window.
+    useEffect(() => {
+        setSelectedAddonIds((prev) =>
+            prev.filter((id) => addonAvailable[id] !== false)
+        )
+    }, [addonAvailable])
+
     const handleCloseDialog = () => {
         setShowLimitDialog(false)
         clearError()
@@ -161,10 +223,37 @@ export default function ProductPage({ product }: ProductPageProps) {
         hasValidRange && !availabilityLoading && remainingAvailableQuantity === 0
     const tripDurationDays =
         hasValidRange && rentalStartIso && rentalEndIso
-            ? Math.max(1, getRoundedRentalDaysFromIso(rentalStartIso, rentalEndIso) ?? 1)
-            : Math.max(1, getTripDurationDays() ?? 1)
+            ? getBilledRentalDaysFromIso(rentalStartIso, rentalEndIso) ?? 1
+            : getTripDurationDays() ?? 1
+    const tripHalfDays = Math.round(tripDurationDays * 2)
     const formattedStartDate = formatInputDate(startDate)
     const formattedEndDate = formatInputDate(endDate)
+
+    const isAddonDisabled = (addonId: number) =>
+        datesConfirmed && addonAvailable[addonId] === false
+    const toggleAddon = (addonId: number) => {
+        if (isAddonDisabled(addonId)) return
+        setSelectedAddonIds((prev) =>
+            prev.includes(addonId)
+                ? prev.filter((x) => x !== addonId)
+                : [...prev, addonId]
+        )
+    }
+    const selectedAddons = useMemo(
+        () =>
+            addons.filter(
+                (a) =>
+                    selectedAddonIds.includes(a.product_id) &&
+                    addonAvailable[a.product_id] !== false
+            ),
+        [addons, selectedAddonIds, addonAvailable]
+    )
+    const currentPrice = previewLineTotalWithAddons(
+        selectedProduct.price,
+        tempQuantity,
+        tripHalfDays,
+        selectedAddons.map((a) => ({ price: a.price, price_mode: a.price_mode }))
+    )
 
     return (
         <>
@@ -269,8 +358,13 @@ export default function ProductPage({ product }: ProductPageProps) {
                                     ? `${formattedStartDate} ${startTime} — ${formattedEndDate} ${endTime}`
                                     : 'Выберите даты и время аренды на главном экране'}
                             </Text>
+                            {hasValidRange && datesConfirmed && eveningGraceExplanation && (
+                                <Text opacity={0.7} fontSize="xs" mt="4px" color="green.500">
+                                    {eveningGraceExplanation}
+                                </Text>
+                            )}
                         </Box>
-                        {hasValidRange && (
+                        {hasValidRange && datesConfirmed && (
                             <Text
                                 w="full"
                                 maxW={{ base: '100%', lg: '920px' }}
@@ -285,6 +379,69 @@ export default function ProductPage({ product }: ProductPageProps) {
                                     : `Доступно на выбранный период: ${remainingAvailableQuantity ?? 0} шт.`}
                             </Text>
                         )}
+
+                        {addons.length > 0 && (
+                            <Box mt="14px">
+                                <Text fontWeight="700" px="18px" mb="8px">
+                                    Дополнительно
+                                </Text>
+                                <Flex direction="column" gap="8px">
+                                    {addons.map((addon) => {
+                                        const disabled = isAddonDisabled(addon.product_id)
+                                        const checked = selectedAddonIds.includes(addon.product_id) && !disabled
+                                        return (
+                                            <Flex
+                                                key={addon.product_id}
+                                                as="button"
+                                                onClick={() => toggleAddon(addon.product_id)}
+                                                align="center"
+                                                gap="12px"
+                                                bg="back"
+                                                rounded="18px"
+                                                px="16px"
+                                                h="52px"
+                                                w="full"
+                                                textAlign="left"
+                                                opacity={disabled ? 0.5 : 1}
+                                                cursor={disabled ? 'not-allowed' : 'pointer'}
+                                                borderWidth="1.5px"
+                                                borderColor={checked ? 'accent' : 'transparent'}
+                                                transition="border-color 0.15s ease"
+                                            >
+                                                <Center
+                                                    h="22px"
+                                                    w="22px"
+                                                    flexShrink={0}
+                                                    rounded="6px"
+                                                    borderWidth="2px"
+                                                    borderColor={checked ? 'accent' : 'gray'}
+                                                    bg={checked ? 'accent' : 'transparent'}
+                                                    color="text"
+                                                >
+                                                    {checked && <FiCheck size={14} />}
+                                                </Center>
+                                                <Flex direction="column" flex="1" minW="0">
+                                                    <Text fontWeight="600" lineClamp={1}>
+                                                        {addon.name}
+                                                    </Text>
+                                                    {disabled && (
+                                                        <Text fontSize="xs" color="red.400">
+                                                            Недоступно на эти даты
+                                                        </Text>
+                                                    )}
+                                                </Flex>
+                                                <Text fontWeight="700" color="accent" flexShrink={0}>
+                                                    +{formatPriceK(addon.price)}
+                                                    <Text as="span" fontSize="xs" opacity={0.7} color="text" ml="2px">
+                                                        {addon.price_mode === 'flat' ? 'разово' : '/сутки'}
+                                                    </Text>
+                                                </Text>
+                                            </Flex>
+                                        )
+                                    })}
+                                </Flex>
+                            </Box>
+                        )}
                     </Box>
                 </Flex>
             </Drawer.Body>
@@ -296,20 +453,23 @@ export default function ProductPage({ product }: ProductPageProps) {
                     mx="auto"
                     gap="gap"
                 >
-                    <CustomNumberInput
-                        value={tempQuantity.toString()}
-                        max={maxSelectableQuantity}
-                        disabled={isUnavailableForDates}
-                        setQuantity={(value) => {
-                            setTempQuantity(value)
-                        }}
-                    />
+                    {!isUnavailableForDates && (
+                        <CustomNumberInput
+                            value={tempQuantity.toString()}
+                            max={maxSelectableQuantity}
+                            setQuantity={(value) => {
+                                setTempQuantity(value)
+                            }}
+                        />
+                    )}
 
                     <ToBasketButton
-                        currentPrice={selectedProduct.price * tempQuantity * tripDurationDays}
+                        currentPrice={currentPrice}
                         productId={selectedProduct.product_id}
                         quantity={tempQuantity}
                         disabled={availabilityLoading || isUnavailableForDates}
+                        unavailable={isUnavailableForDates}
+                        addonProductIds={selectedAddons.map((a) => a.product_id)}
                     />
                 </Flex>
             </Drawer.Footer>

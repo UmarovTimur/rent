@@ -39,6 +39,8 @@ class OrderItemResponse(BaseModel):
     quantity: int
     rental_start: datetime | None = None
     rental_end: datetime | None = None
+    # Set on add-on lines → the order_item_id of their parent product line.
+    parent_order_item_id: int | None = None
 
 
 class OrderResponse(BaseModel):

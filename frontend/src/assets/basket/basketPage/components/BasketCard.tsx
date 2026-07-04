@@ -9,7 +9,8 @@ import { RentalService } from '@/api/RentalService'
 import {
     formatRentalDaysRu,
     formatRentalDateTimeRange,
-    getRoundedRentalDaysFromIso,
+    getBilledRentalDaysFromIso,
+    previewLineTotalWithAddons,
 } from '@/utils/rental'
 import { formatPriceK } from '@/utils/price'
 
@@ -150,10 +151,16 @@ export default function BasketCard({ price }: CardProps) {
     }, [])
 
     const billedDays = useMemo(
-        () => getRoundedRentalDaysFromIso(price.rental_start, price.rental_end) ?? 1,
+        () => getBilledRentalDaysFromIso(price.rental_start, price.rental_end) ?? 1,
         [price.rental_end, price.rental_start]
     )
-    const lineTotal = price.price * localQuantity * billedDays
+    const addons = price.addons ?? []
+    const lineTotal = previewLineTotalWithAddons(
+        price.price,
+        localQuantity,
+        Math.round(billedDays * 2),
+        addons.map((a) => ({ price: a.price, price_mode: a.price_mode }))
+    )
 
     const handleDeleteConfirm = async () => {
         await removeFromBasket(price.basket_item_id)
@@ -229,6 +236,25 @@ export default function BasketCard({ price }: CardProps) {
                     >
                         {formatRentalDaysRu(billedDays)}
                     </Text>
+
+                    {addons.length > 0 && (
+                        <Flex direction="column" gap="1px" mb="4px" w="85%">
+                            {addons.map((addon) => (
+                                <Text
+                                    key={addon.basket_item_id}
+                                    color="text"
+                                    opacity={0.7}
+                                    textAlign="left"
+                                    lineHeight="14px"
+                                    fontSize="2xs"
+                                    lineClamp={1}
+                                >
+                                    + {addon.name} ({formatPriceK(addon.price)}
+                                    {addon.price_mode === 'flat' ? ' разово' : '/сут'})
+                                </Text>
+                            ))}
+                        </Flex>
+                    )}
 
                     <Flex
                         justifyContent="space-between"

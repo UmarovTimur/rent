@@ -6,7 +6,12 @@ from starlette.responses import JSONResponse
 from src.clients.database.models.product import Product
 from src.container import container
 from src.services.product.interface import ProductServiceI
-from src.services.product.schemas import ProductCreate, ProductResponse, ProductUpdate
+from src.services.product.schemas import (
+    AddonResponse,
+    ProductCreate,
+    ProductResponse,
+    ProductUpdate,
+)
 from src.services.schemas import Image
 from src.services.static import create_message, delete_message, update_message
 
@@ -37,6 +42,14 @@ async def get_all(
     product_service: ProductServiceI = Depends(get_product_service),
 ) -> list[ProductResponse]:
     return await product_service.get_all()
+
+
+@router.get("/{product_id}/addons", response_model=list[AddonResponse])
+async def get_addons(
+    product_id: int,
+    product_service: ProductServiceI = Depends(get_product_service),
+) -> list[AddonResponse]:
+    return await product_service.get_addons_for(product_id)
 
 
 @router.get("/get_by_name/{product_name}", response_model=ProductResponse)

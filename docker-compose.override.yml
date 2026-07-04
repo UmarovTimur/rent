@@ -1,0 +1,7 @@
+services:
+  backend:
+    ports: []
+
+  db:
+    ports:
+      - "5439:5432"

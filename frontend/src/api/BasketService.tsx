@@ -27,7 +27,8 @@ export const BasketService = {
         productId: number,
         quantity: number = 1,
         rentalStart?: string,
-        rentalEnd?: string
+        rentalEnd?: string,
+        addonProductIds: number[] = []
     ): Promise<void> {
         await axios.post(
             `${API_BASE_URL}api/v1/basket/add_item?user_id=${userId}`,
@@ -36,8 +37,20 @@ export const BasketService = {
                 quantity,
                 rental_start: rentalStart,
                 rental_end: rentalEnd,
+                addon_product_ids: addonProductIds,
             }
         )
+    },
+
+    async setBasketDates(
+        userId: number,
+        rentalStart: string,
+        rentalEnd: string
+    ): Promise<void> {
+        await axios.put(`${API_BASE_URL}api/v1/basket/${userId}/dates`, {
+            rental_start: rentalStart,
+            rental_end: rentalEnd,
+        })
     },
 
     async getBasket(userId: number): Promise<Basket | null> {

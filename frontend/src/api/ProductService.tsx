@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { Category, Product, Ingredient } from '@/types/Products'
+import { Addon, Category, Product, Ingredient } from '@/types/Products'
 import API_BASE_URL from '@/config'
 
 let cachedProducts: Product[] | null = null
@@ -44,6 +44,19 @@ export const ProductService = {
     } catch (error) {
       console.error('Error fetching categories:', error)
       throw error
+    }
+  },
+
+  // Add-ons are excluded from the catalog cache by design; fetch on demand.
+  fetchAddons: async (productId: number): Promise<Addon[]> => {
+    try {
+      const response = await axios.get<Addon[]>(
+        `${API_BASE_URL}api/v1/product/${productId}/addons`
+      )
+      return response.data
+    } catch (error) {
+      console.error('Error fetching add-ons:', error)
+      return []
     }
   },
 

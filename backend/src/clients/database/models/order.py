@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from sqlalchemy import Boolean, CheckConstraint, DateTime, Float, ForeignKey, Integer, String
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, backref, mapped_column, relationship
 
 from src.clients.database.base import Base
 
@@ -56,9 +56,18 @@ class OrderItem(Base):
     quantity: Mapped[int] = mapped_column(nullable=False, default=1)
     rental_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
     rental_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Snapshot of the add-on → parent-line link (NULL for normal product lines).
+    parent_order_item_id: Mapped[int | None] = mapped_column(
+        ForeignKey("order_items.order_item_id", ondelete="CASCADE"), nullable=True
+    )
 
     order: Mapped["Order"] = relationship("Order", back_populates="items")
     product: Mapped["Product"] = relationship("Product", back_populates="order_items")  # noqa: F821
+    addon_items: Mapped[list["OrderItem"]] = relationship(
+        "OrderItem",
+        backref=backref("parent_item", remote_side=[order_item_id]),
+        cascade="all, delete-orphan",
+    )
 
     def __str__(self) -> str:
         return f"OrderItem #{self.order_item_id} (product_id={self.product_id}) x{self.quantity}"

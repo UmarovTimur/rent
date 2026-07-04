@@ -22,11 +22,11 @@ window.i18nResources = {
 
       'how.eyebrow': 'Как это работает',
       'how.title':   'От брони до возврата — четыре шага',
-      'how.step1':   'Выбираете снаряжение и бронируете его за 50 000 сум, написав нам, на сколько суток',
+      'how.step1':   'Выбираете снаряжение и бронируете его за 100 000 сум, написав нам, на сколько суток',
       'how.step2':   'Приезжаете к нам, оставляете паспорт в залог и оплачиваете всю стоимость аренды',
       'how.step3':   'Забираете снаряжение и едете в горы',
       'how.step4':   'Возвращаете инвентарь и забираете паспорт обратно',
-      'how.note':    'Бронь — 50 000 сум, остальные деньги передаёте только при получении снаряжения.',
+      'how.note':    'Бронь — 100 000 сум, остальные деньги передаёте только при получении снаряжения.',
 
       'catalog.eyebrow':      'Прайс-лист',
       'catalog.title':        'Сколько стоит взять снаряжение',
@@ -39,7 +39,7 @@ window.i18nResources = {
       'trust.title':   'Оригинальные бренды и понятные условия',
       'trust.p1':      'Мы сдаём в аренду туристическое снаряжение для походов в горы, кемпинга и пикников в Ташкенте и области — палатки на 4, 5 и 8 человек, спальные мешки, карематы, рюкзаки, треккинговые палки, кухонное оборудование и кемпинговую мебель. Всё снаряжение — от Naturehike, Jeep, Camel и FireMaple, в рабочем состоянии и проверено перед каждой выдачей.',
       'trust.p2':      'Чаще всего у нас берут снаряжение перед выездом в Чимган, Бельдерсай, Чарвак и Чаткальский хребет — туда, где не всегда есть смысл тащить с собой палатку и спальник на весь сезон. Взять напрокат на выходные выходит дешевле, чем покупать снаряжение, которым вы воспользуетесь два-три раза в год.',
-      'trust.p3':      'Бронируете онлайн за 50 000 сум, а при получении оставляете паспорт в залог и оплачиваете полную стоимость аренды за нужное количество суток — без абонементов и скрытых условий.',
+      'trust.p3':      'Бронируете онлайн за 100 000 сум, а при получении оставляете паспорт в залог и оплачиваете полную стоимость аренды за нужное количество суток — без абонементов и скрытых условий.',
 
       'faq.eyebrow': 'Вопросы',
       'faq.title':   'Что обычно спрашивают',
@@ -48,7 +48,7 @@ window.i18nResources = {
       'faq.q2': 'Что нужно, чтобы взять снаряжение в аренду?',
       'faq.a2': 'Паспорт — он остаётся у нас в залог на время аренды. Полную стоимость аренды оплачиваете при получении снаряжения.',
       'faq.q3': 'Можно ли забронировать заранее?',
-      'faq.a3': 'Да — бронь стоит 50 000 сум, пишите в Telegram, подтвердим место. Остальную сумму оплачиваете при получении снаряжения.',
+      'faq.a3': 'Да — бронь стоит 100 000 сум, пишите в Telegram, подтвердим место. Остальную сумму оплачиваете при получении снаряжения.',
       'faq.q4': 'Где забирать и возвращать инвентарь?',
       'faq.a4': 'В Ташкенте — точный адрес пункта выдачи присылаем после подтверждения брони в Telegram.',
       'faq.q5': 'Можно ли арендовать сразу несколько единиц снаряжения?',
@@ -90,11 +90,11 @@ window.i18nResources = {
 
       'how.eyebrow': 'How it works',
       'how.title':   'From booking to return — four steps',
-      'how.step1':   'Choose your gear and book it for 50,000 UZS by messaging us with the number of days',
+      'how.step1':   'Choose your gear and book it for 100,000 UZS by messaging us with the number of days',
       'how.step2':   'Come to us, leave your passport as a deposit and pay the full rental cost',
       'how.step3':   'Pick up the gear and head to the mountains',
       'how.step4':   'Return the gear and get your passport back',
-      'how.note':    'Booking fee — 50,000 UZS. You pay the rest only when picking up the gear.',
+      'how.note':    'Booking fee — 100,000 UZS. You pay the rest only when picking up the gear.',
 
       'catalog.eyebrow':      'Price list',
       'catalog.title':        'How much does it cost to rent gear',
@@ -107,7 +107,7 @@ window.i18nResources = {
       'trust.title':   'Original brands and clear terms',
       'trust.p1':      'We rent out tourist equipment for mountain hikes, camping and picnics in Tashkent and the surrounding area — tents for 4, 5 and 8 people, sleeping bags, sleeping pads, backpacks, trekking poles, kitchen equipment and camping furniture. All gear is from Naturehike, Jeep, Camel and FireMaple, in working condition and checked before every rental.',
       'trust.p2':      'Most people rent from us before heading to Chimgan, Beldersay, Charvak and the Chatkal Ridge — places where it rarely makes sense to haul a tent and sleeping bag for the whole season. Renting for the weekend is cheaper than buying gear you\'ll use two or three times a year.',
-      'trust.p3':      'Book online for 50,000 UZS, then leave your passport as a deposit on pickup and pay the full rental cost for however many nights you need — no subscriptions, no hidden fees.',
+      'trust.p3':      'Book online for 100,000 UZS, then leave your passport as a deposit on pickup and pay the full rental cost for however many nights you need — no subscriptions, no hidden fees.',
 
       'faq.eyebrow': 'FAQ',
       'faq.title':   'Common questions',
@@ -116,7 +116,7 @@ window.i18nResources = {
       'faq.q2': 'What do I need to rent gear?',
       'faq.a2': 'Your passport — it stays with us as a deposit during the rental. You pay the full rental cost on pickup.',
       'faq.q3': 'Can I book in advance?',
-      'faq.a3': 'Yes — the booking fee is 50,000 UZS. Message us in Telegram and we\'ll confirm your spot. You pay the rest on pickup.',
+      'faq.a3': 'Yes — the booking fee is 100,000 UZS. Message us in Telegram and we\'ll confirm your spot. You pay the rest on pickup.',
       'faq.q4': 'Where do I pick up and return the gear?',
       'faq.a4': 'In Tashkent — we send the exact pickup address after confirming your booking in Telegram.',
       'faq.q5': 'Can I rent multiple items at once?',

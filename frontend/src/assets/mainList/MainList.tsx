@@ -32,9 +32,10 @@ const OVERSCAN_PX = (CARD_HEIGHT_PX + CARD_VERTICAL_GAP_PX) * OVERSCAN_ITEMS
 
 type VirtualizedProductCardProps = {
     product: Product
+    unavailable?: boolean
 }
 
-function VirtualizedProductCard({ product }: VirtualizedProductCardProps) {
+function VirtualizedProductCard({ product, unavailable = false }: VirtualizedProductCardProps) {
     const [isDrawerOpen, setIsDrawerOpen] = useState(false)
     const isDesktop = useIsDesktop()
     const { ref, inView } = useInView({
@@ -48,7 +49,7 @@ function VirtualizedProductCard({ product }: VirtualizedProductCardProps) {
     if (isDesktop) {
         return (
             <MotionDrawer
-                trigger={<Card product={product} />}
+                trigger={<Card product={product} unavailable={unavailable} />}
                 onOpenChange={setIsDrawerOpen}
             >
                 <ProductPage product={product} />
@@ -60,7 +61,7 @@ function VirtualizedProductCard({ product }: VirtualizedProductCardProps) {
         <Box ref={ref} h={`${CARD_HEIGHT_PX}px`} w="full">
             {shouldRenderCard ? (
                 <MotionDrawer
-                    trigger={<Card product={product} />}
+                    trigger={<Card product={product} unavailable={unavailable} />}
                     onOpenChange={setIsDrawerOpen}
                 >
                     <ProductPage product={product} />
@@ -77,7 +78,7 @@ export default function MainList({
     searchQuery,
 }: MainListProps) {
     const { loading, error, getProductsByCategory } = useProducts()
-    const { hasValidRange, rentalStartIso, rentalEndIso } = useTripDates()
+    const { hasValidRange, datesConfirmed, rentalStartIso, rentalEndIso } = useTripDates()
 
     const [visibleCategories, setVisibleCategories] = useState<string[]>([])
     const [isAutoChangeBlocked, setIsAutoChangeBlocked] = useState(false)
@@ -150,7 +151,7 @@ export default function MainList({
     }, [categories, getProductsByCategory, loading])
 
     useEffect(() => {
-        if (loading || !hasValidRange || !rentalStartIso || !rentalEndIso) return
+        if (loading || !hasValidRange || !datesConfirmed || !rentalStartIso || !rentalEndIso) return
 
         let cancelled = false
 
@@ -192,28 +193,31 @@ export default function MainList({
         return () => {
             cancelled = true
         }
-    }, [loading, hasValidRange, rentalStartIso, rentalEndIso, uniqueProductCards])
+    }, [loading, hasValidRange, datesConfirmed, rentalStartIso, rentalEndIso, uniqueProductCards])
 
     useEffect(() => {
         window.scrollTo({ top: 0, behavior: 'auto' })
     }, [normalizedSearchQuery])
 
+    // Every product stays in the list. Once dates are confirmed and availability
+    // has loaded, the ones that aren't available are dimmed (not removed) so it's
+    // visible that they exist but can't be rented for the chosen window.
+    const isUnavailable = useCallback(
+        (productId: number): boolean =>
+            datesConfirmed &&
+            !availabilityLoading &&
+            availableProductIds[productId] !== true,
+        [datesConfirmed, availabilityLoading, availableProductIds]
+    )
+
     const availableProductsByCategory = useMemo<CategoryProducts[]>(() => {
         if (loading) return []
 
-        return categories.map((category) => {
-            const products = getProductsByCategory(category).filter(
-                (product) =>
-                    !hasValidRange ||
-                    availableProductIds[product.product_id] === true
-            )
-
-            return {
-                category,
-                products,
-            }
-        })
-    }, [categories, getProductsByCategory, hasValidRange, availableProductIds, loading])
+        return categories.map((category) => ({
+            category,
+            products: getProductsByCategory(category),
+        }))
+    }, [categories, getProductsByCategory, loading])
 
     const searchableProducts = useMemo(() => {
         const all = availableProductsByCategory.flatMap((entry) => entry.products)
@@ -319,17 +323,16 @@ export default function MainList({
                                 <VirtualizedProductCard
                                     key={product.product_id}
                                     product={product}
+                                    unavailable={isUnavailable(product.product_id)}
                                 />
                             ))}
                         </Box>
 
-                        {!availabilityLoading &&
-                            !debouncedSearchQuery &&
-                            products.length === 0 && (
-                                <Text opacity={0.6} fontSize="sm" px="8px">
-                                    Нет доступных товаров на выбранные даты
-                                </Text>
-                            )}
+                        {!debouncedSearchQuery && products.length === 0 && (
+                            <Text opacity={0.6} fontSize="sm" px="8px">
+                                В этой категории пока нет товаров
+                            </Text>
+                        )}
                     </Flex>
                 ))
             )}

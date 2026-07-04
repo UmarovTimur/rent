@@ -1,17 +1,31 @@
 from datetime import datetime
 
 from sqlalchemy import CheckConstraint, DateTime, ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, backref, mapped_column, relationship
 
 from src.clients.database.base import Base
 
 
 class Basket(Base):
     __tablename__ = "baskets"
+    __table_args__ = (
+        CheckConstraint(
+            "(rental_start IS NULL AND rental_end IS NULL) OR "
+            "(rental_start IS NOT NULL AND rental_end IS NOT NULL)",
+            name="ck_baskets_rental_pair",
+        ),
+        CheckConstraint(
+            "rental_start IS NULL OR rental_end IS NULL OR rental_end > rental_start",
+            name="ck_baskets_rental_range",
+        ),
+    )
 
     basket_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(nullable=False)
     discount: Mapped[float] = mapped_column(nullable=True)
+    # Selected trip window, persisted independently of items (survives an empty basket).
+    rental_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+    rental_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
 
     items: Mapped[list["BasketItem"]] = relationship(
         "BasketItem", back_populates="basket", cascade="all, delete-orphan"
@@ -44,9 +58,19 @@ class BasketItem(Base):
     quantity: Mapped[int] = mapped_column(nullable=False, default=1)
     rental_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
     rental_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+    # For add-on lines: points to the parent product line they were added with.
+    # NULL for normal product lines.
+    parent_basket_item_id: Mapped[int | None] = mapped_column(
+        ForeignKey("basket_items.basket_item_id", ondelete="CASCADE"), nullable=True
+    )
 
     basket: Mapped["Basket"] = relationship("Basket", back_populates="items")
     product: Mapped["Product"] = relationship("Product", back_populates="basket_items")  # noqa: F821
+    addon_items: Mapped[list["BasketItem"]] = relationship(
+        "BasketItem",
+        backref=backref("parent_item", remote_side=[basket_item_id]),
+        cascade="all, delete-orphan",
+    )
 
     def __str__(self) -> str:
         return f"BasketItem #{self.basket_item_id} (product_id={self.product_id}) x{self.quantity}"

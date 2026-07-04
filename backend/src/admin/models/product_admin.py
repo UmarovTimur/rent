@@ -41,6 +41,8 @@ class ProductAdmin(ModelView, model=Product):
         Product.category,
         Product.name,
         Product.price,
+        Product.price_mode,
+        Product.is_addon,
         Product.image_url,
     ]
     column_details_list = [
@@ -49,6 +51,9 @@ class ProductAdmin(ModelView, model=Product):
         Product.name,
         Product.description,
         Product.price,
+        Product.price_mode,
+        Product.is_addon,
+        Product.addons,
         Product.image_url,
         Product.image_urls,
     ]
@@ -58,9 +63,14 @@ class ProductAdmin(ModelView, model=Product):
         Product.description,
         Product.category,
         Product.price,
+        Product.price_mode,
+        Product.is_addon,
+        Product.addons,
     ]
     form_ajax_refs = {
         "category": {"fields": ["name"], "order_by": "name"},
+        # Attach optional add-ons (other products, typically is_addon=True).
+        "addons": {"fields": ["name"], "order_by": "name"},
     }
     form_widget_args = {
         "price": {"step": 1, "min": 0},

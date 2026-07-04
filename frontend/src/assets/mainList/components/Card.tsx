@@ -6,9 +6,10 @@ import { formatPriceK } from '@/utils/price'
 type CardProps = {
     product: Product
     onClick?: React.MouseEventHandler
+    unavailable?: boolean
 }
 
-export default function Card({ product, onClick }: CardProps) {
+export default function Card({ product, onClick, unavailable = false }: CardProps) {
     const [hoverIdx, setHoverIdx] = useState(0)
 
     const allImages: string[] = [
@@ -48,6 +49,9 @@ export default function Card({ product, onClick }: CardProps) {
             gap="0"
             zIndex="0"
             onClick={onClick}
+            opacity={unavailable ? 0.55 : 1}
+            filter={unavailable ? 'grayscale(0.6)' : 'none'}
+            transition="opacity 0.2s ease, filter 0.2s ease"
         >
             {/* Image with hover-zone effect */}
             <Box
@@ -70,6 +74,25 @@ export default function Card({ product, onClick }: CardProps) {
                     display="block"
                     style={{ transition: 'opacity 0.15s ease' }}
                 />
+
+                {unavailable && (
+                    <Flex
+                        position="absolute"
+                        top="8px"
+                        left="8px"
+                        bg="blackAlpha.700"
+                        color="white"
+                        px="10px"
+                        h="24px"
+                        alignItems="center"
+                        rounded="full"
+                        fontSize="2xs"
+                        fontWeight="700"
+                        pointerEvents="none"
+                    >
+                        Недоступно
+                    </Flex>
+                )}
 
                 {/* Hover zone indicators (thin dots at bottom) */}
                 {imgCount > 1 && (

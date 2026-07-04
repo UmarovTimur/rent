@@ -6,7 +6,7 @@ import {
     useRef,
     useState,
 } from 'react'
-import { Basket, BasketItem } from '@/types/Basket'
+import { Basket, BasketItem, BasketItemAddon } from '@/types/Basket'
 import { BasketService } from '@/api/BasketService'
 import { ProductService } from '@/api/ProductService'
 import { RentalService } from '@/api/RentalService'
@@ -18,6 +18,7 @@ export type ProductWithQuantity = Product & {
     basket_item_id: number
     rental_start?: string | null
     rental_end?: string | null
+    addons?: BasketItemAddon[]
 }
 
 type BasketContextType = {
@@ -30,7 +31,8 @@ type BasketContextType = {
         productId: number,
         quantity: number,
         rentalStart?: string,
-        rentalEnd?: string
+        rentalEnd?: string,
+        addonProductIds?: number[]
     ) => Promise<boolean>
     updateQuantity: (basketItemId: number, quantity: number) => Promise<void>
     clearError: () => void
@@ -131,6 +133,7 @@ export const BasketProvider = ({
                 basket_item_id: item.basket_item_id,
                 rental_start: item.rental_start ?? null,
                 rental_end: item.rental_end ?? null,
+                addons: item.addons ?? [],
             }
         })
 
@@ -167,7 +170,8 @@ export const BasketProvider = ({
         productId: number,
         quantity: number = 1,
         rentalStart?: string,
-        rentalEnd?: string
+        rentalEnd?: string,
+        addonProductIds: number[] = []
     ): Promise<boolean> => {
         setLoading(true)
         setError('')
@@ -191,7 +195,8 @@ export const BasketProvider = ({
                 productId,
                 quantity,
                 rentalStart,
-                rentalEnd
+                rentalEnd,
+                addonProductIds
             )
             await refreshBasket()
             return true
@@ -263,17 +268,32 @@ export const BasketProvider = ({
             setError('')
 
             try {
-                const itemsByProduct = new Map<number, BasketItem[]>()
+                // Group by product + its add-on set, so lines with different
+                // add-ons stay distinct and add-ons survive the window move.
+                const addonKey = (item: BasketItem) =>
+                    (item.addons ?? [])
+                        .map((a) => a.product_id)
+                        .sort((x, y) => x - y)
+                        .join(',')
+                const groups = new Map<
+                    string,
+                    { productId: number; addonIds: number[]; items: BasketItem[] }
+                >()
                 for (const item of rentalItems) {
-                    const current = itemsByProduct.get(item.product_id)
-                    if (current) {
-                        current.push(item)
+                    const key = `${item.product_id}::${addonKey(item)}`
+                    const existing = groups.get(key)
+                    if (existing) {
+                        existing.items.push(item)
                     } else {
-                        itemsByProduct.set(item.product_id, [item])
+                        groups.set(key, {
+                            productId: item.product_id,
+                            addonIds: (item.addons ?? []).map((a) => a.product_id),
+                            items: [item],
+                        })
                     }
                 }
 
-                for (const [productId, items] of itemsByProduct) {
+                for (const { productId, addonIds, items } of groups.values()) {
                     const staleItems = items.filter(
                         (item) =>
                             !hasSameRentalWindow(
@@ -318,7 +338,8 @@ export const BasketProvider = ({
                             productId,
                             quantityToAdd,
                             rentalStartIso,
-                            rentalEndIso
+                            rentalEndIso,
+                            addonIds
                         )
                     }
 

@@ -19,6 +19,16 @@ export interface Category {
     name: string
 }
 
+export type PriceMode = 'per_day' | 'flat'
+
+export interface Addon {
+    product_id: number
+    name: string
+    price: number
+    price_mode: PriceMode
+    image_url?: string | null
+}
+
 export interface Product {
     product_id: number
     name: string
@@ -31,6 +41,8 @@ export interface Product {
     carbohydrates?: number
     calories?: number
     is_custom?: boolean
+    is_addon?: boolean
+    price_mode?: PriceMode
     ingredients?: Ingredient[]
     category: Category
 }

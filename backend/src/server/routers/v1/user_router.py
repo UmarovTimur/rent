@@ -6,7 +6,7 @@ from starlette.responses import JSONResponse
 from src.container import container
 from src.services.static import create_message
 from src.services.user.interface import UserServiceI
-from src.services.user.schemas import UserCreate, UserResponse
+from src.services.user.schemas import UserCreate, UserResponse, UserUpdate
 
 user_tag = "Users"
 router = APIRouter(prefix="/users", tags=[user_tag])
@@ -23,6 +23,15 @@ async def create_user(
 ) -> JSONResponse:
     await user_service.create(user)
     return JSONResponse(content={"message": create_message.format(entity=user_tag)}, status_code=HTTPStatus.CREATED)
+
+
+@router.patch("/update_user", response_model=UserResponse)
+async def update_user(
+    user_id: int,
+    data: UserUpdate,
+    user_service: UserServiceI = Depends(get_user_service),
+) -> UserResponse:
+    return await user_service.update(user_id, data)
 
 
 @router.get("/get_user_by_id", response_model=UserResponse)

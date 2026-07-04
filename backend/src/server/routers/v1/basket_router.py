@@ -5,7 +5,12 @@ from starlette.responses import JSONResponse, Response
 
 from src.container import container
 from src.services.basket.interface import BasketServiceI
-from src.services.basket.schemas import BasketItemCreate, BasketResponse, QuantityUpdate
+from src.services.basket.schemas import (
+    BasketDatesUpdate,
+    BasketItemCreate,
+    BasketResponse,
+    QuantityUpdate,
+)
 from src.services.static import create_message, delete_message
 
 basket_tag = "Basket"
@@ -22,6 +27,16 @@ async def get_basket(
     basket_service: BasketServiceI = Depends(get_basket_service),
 ) -> BasketResponse:
     return await basket_service.get_user_basket(user_id)
+
+
+@router.put("/{user_id}/dates")
+async def set_basket_dates(
+    user_id: int,
+    dates: BasketDatesUpdate,
+    basket_service: BasketServiceI = Depends(get_basket_service),
+) -> Response:
+    await basket_service.set_basket_dates(user_id, dates)
+    return Response(status_code=204)
 
 
 @router.post("/add_item")

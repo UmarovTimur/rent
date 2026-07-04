@@ -9,6 +9,8 @@ type ToBasketProps = {
     productId: number
     quantity: number
     disabled?: boolean
+    unavailable?: boolean
+    addonProductIds?: number[]
 }
 
 export default function ToBasketButton({
@@ -16,6 +18,8 @@ export default function ToBasketButton({
     productId,
     quantity,
     disabled = false,
+    unavailable = false,
+    addonProductIds = [],
 }: ToBasketProps) {
     const { onClose } = useDrawer()
     const { addToBasket, loading } = useBasketContext()
@@ -28,13 +32,15 @@ export default function ToBasketButton({
             productId,
             quantity,
             rentalStartIso,
-            rentalEndIso
+            rentalEndIso,
+            addonProductIds
         )
 
         if (success) onClose()
     }
 
-    const isDisabled = !hasValidRange || !datesConfirmed || disabled || loading
+    const needsDates = !hasValidRange || !datesConfirmed
+    const isDisabled = needsDates || disabled || loading
 
     return (
         <CloseButton
@@ -50,7 +56,11 @@ export default function ToBasketButton({
             disabled={isDisabled}
             opacity={isDisabled ? 0.6 : 1}
         >
-            В корзину - {formatPriceK(currentPrice)}
+            {needsDates
+                ? 'Укажите даты аренды'
+                : unavailable
+                  ? 'Недоступно на эти даты'
+                  : `В корзину - ${formatPriceK(currentPrice)}`}
         </CloseButton>
     )
 }

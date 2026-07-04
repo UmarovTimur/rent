@@ -5,6 +5,7 @@ from http import HTTPStatus
 import aiohttp
 from aiogram import Bot, F, Router
 from aiogram.filters import Command
+from aiogram.fsm.context import FSMContext
 from aiogram.types import InlineKeyboardMarkup, Message
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
@@ -26,11 +27,12 @@ WELCOME_TEXT = "Добро пожаловать! Нажмите на кнопк�
 
 
 @router.message(Command("start"))
-async def send_welcome(message: Message) -> None:
+async def send_welcome(message: Message, state: FSMContext) -> None:
     if not message.from_user:
         return
 
     user_id = message.from_user.id
+    has_phone = False
 
     try:
         async with aiohttp.ClientSession(timeout=REQUEST_TIMEOUT) as session:
@@ -38,6 +40,8 @@ async def send_welcome(message: Message) -> None:
             async with session.get(get_user_by_id_url, params={"user_id": user_id}) as resp:
                 if resp.status == HTTPStatus.OK:
                     user_exists = True
+                    user_payload = await resp.json()
+                    has_phone = bool(user_payload.get("phone_number"))
                 elif resp.status in {HTTPStatus.NOT_FOUND, HTTPStatus.BAD_REQUEST}:
                     response_text = await resp.text()
                     # Backend returns 400 for "user not found" via global exception mapping.
@@ -110,6 +114,15 @@ async def send_welcome(message: Message) -> None:
         await message.answer(UNEXPECTED_ERROR_TEXT)
         return
 
+    if not has_phone:
+        # New user, or an old one without a phone on record — collect contact
+        # details so the Mini App order form can be prefilled.
+        from src.handlers.registration import start_registration
+
+        await start_registration(message, state)
+        return
+
+    await state.clear()
     await message.answer(WELCOME_TEXT)
 
 

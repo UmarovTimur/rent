@@ -1,7 +1,7 @@
 from abc import abstractmethod
 from typing import Protocol
 
-from src.services.user.schemas import UserCreate, UserResponse
+from src.services.user.schemas import UserCreate, UserResponse, UserUpdate
 
 
 class UserServiceI(Protocol):
@@ -11,6 +11,10 @@ class UserServiceI(Protocol):
 
     @abstractmethod
     async def get_by_id(self, user_id: int) -> UserResponse:
+        ...
+
+    @abstractmethod
+    async def update(self, user_id: int, data: UserUpdate) -> UserResponse:
         ...
 
     @abstractmethod

@@ -29,6 +29,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Test
+        run: npm run test
+
       - name: Build
         run: npm run build
 
@@ -50,10 +53,13 @@ jobs:
         run: pip install poetry
 
       - name: Install dependencies
-        run: poetry lock && poetry install --no-interaction --only main --no-root
+        run: poetry lock && poetry install --no-interaction --with dev --no-root
 
       - name: Syntax check
         run: poetry run python -m compileall src
+
+      - name: Tests
+        run: poetry run pytest tests -q
 
   bot:
     runs-on: ubuntu-latest

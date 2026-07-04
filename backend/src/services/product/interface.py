@@ -1,7 +1,12 @@
 from abc import abstractmethod
 from typing import Protocol
 
-from src.services.product.schemas import ProductCreate, ProductResponse, ProductUpdate
+from src.services.product.schemas import (
+    AddonResponse,
+    ProductCreate,
+    ProductResponse,
+    ProductUpdate,
+)
 from src.services.schemas import Image
 
 
@@ -11,6 +16,9 @@ class ProductServiceI(Protocol):
 
     @abstractmethod
     async def get_all(self) -> list[ProductResponse]: ...
+
+    @abstractmethod
+    async def get_addons_for(self, product_id: int) -> list[AddonResponse]: ...
 
     @abstractmethod
     async def get_by_name(self, product_name: str) -> ProductResponse: ...

@@ -1,4 +1,4 @@
-import { ChakraProvider, Alert, Spinner, Center, Box } from '@chakra-ui/react'
+import { ChakraProvider, Alert, Spinner, Center, Box, Heading, Text, Button, Link } from '@chakra-ui/react'
 import { useState, useEffect } from 'react'
 import { system } from './theme.ts'
 import Header from '@/assets/header/Header.tsx'
@@ -13,8 +13,12 @@ import { OrderProvider } from '@/contexts/OrderContext'
 import { Toaster } from '@/components/ui/toaster'
 import { UserProvider } from '@/contexts/UserContext.tsx'
 import { TripDatesProvider } from '@/contexts/TripDatesContext.tsx'
-import PhoneAuthScreen from '@/assets/auth/PhoneAuthScreen.tsx'
+// Phone-number web registration is temporarily disabled — re-enable by
+// restoring the PhoneAuthScreen render in the `needAuth` branch below.
+// import PhoneAuthScreen from '@/assets/auth/PhoneAuthScreen.tsx'
 import { AuthService } from '@/api/AuthService'
+
+const BOT_URL = 'https://t.me/camping_rent_uz_bot'
 
 declare global {
     interface Window {
@@ -77,9 +81,35 @@ export default function App() {
     }
 
     if (needAuth) {
+        // Web registration by phone number is disabled for now — the Mini App
+        // is only available inside Telegram.
         return (
             <ChakraProvider value={system}>
-                <PhoneAuthScreen onAuth={(id) => { setUserId(id); setNeedAuth(false) }} />
+                <Center h="100vh" p="24px" bg="back">
+                    <Box
+                        maxW="360px"
+                        w="full"
+                        bg="card"
+                        borderWidth="1px"
+                        borderColor="gray"
+                        rounded="26px"
+                        p="28px"
+                        textAlign="center"
+                    >
+                        <Heading size="lg" color="text" mb="10px">
+                            Доступно в Telegram
+                        </Heading>
+                        <Text color="text" opacity={0.7} fontSize="sm" mb="20px">
+                            Приложение работает внутри Telegram. Откройте нашего
+                            бота, чтобы оформить аренду.
+                        </Text>
+                        <Link href={BOT_URL} target="_blank" rel="noopener" w="full">
+                            <Button bg="accent" color="text" rounded="full" h="48px" w="full" fontWeight="700">
+                                Открыть в Telegram
+                            </Button>
+                        </Link>
+                    </Box>
+                </Center>
             </ChakraProvider>
         )
     }
@@ -95,7 +125,7 @@ export default function App() {
     return (
         <UserProvider userId={userId}>
             <OrderProvider userId={userId}>
-                <TripDatesProvider>
+                <TripDatesProvider userId={userId}>
                     <BasketProvider userId={userId}>
                         <ChakraProvider value={system}>
                             <Box maxW="1320px" mx="auto">

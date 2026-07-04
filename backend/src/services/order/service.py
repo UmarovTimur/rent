@@ -14,7 +14,11 @@ from src.services.errors import OrderNotFoundError, BasketNotFoundError
 from src.services.order.interface import OrderServiceI
 from src.services.order.schemas import OrderCreate, OrderResponse, OrderStatus, OrderItemResponse
 from src.services.rental.interface import RentalServiceI
-from src.services.rental_pricing import calculate_rental_line_total
+from src.services.rental_pricing import (
+    floor_to_step,
+    line_half_day_units,
+)
+from src.settings.billing import BillingSettings
 
 
 class OrderService(BaseService, OrderServiceI):
@@ -78,6 +82,9 @@ class OrderService(BaseService, OrderServiceI):
             await session.flush()
             order_id = new_order.order_id
 
+            # Pass 1: create an OrderItem per basket line, remembering the
+            # basket_item_id → OrderItem mapping (parent ids exist only after flush).
+            order_item_by_basket_id: dict[int, OrderItem] = {}
             for basket_item in basket.items:
                 order_item = OrderItem(
                     order_id=new_order.order_id,
@@ -88,6 +95,18 @@ class OrderService(BaseService, OrderServiceI):
                     rental_end=basket_item.rental_end,
                 )
                 session.add(order_item)
+                order_item_by_basket_id[basket_item.basket_item_id] = order_item
+
+            await session.flush()
+
+            # Pass 2: link add-on OrderItems to their parent's OrderItem.
+            for basket_item in basket.items:
+                if basket_item.parent_basket_item_id is None:
+                    continue
+                child = order_item_by_basket_id[basket_item.basket_item_id]
+                parent = order_item_by_basket_id.get(basket_item.parent_basket_item_id)
+                if parent is not None:
+                    child.parent_order_item_id = parent.order_item_id
 
         await self.basket_service.clear_basket(order_data.basket_id)
         return order_id
@@ -139,6 +158,7 @@ class OrderService(BaseService, OrderServiceI):
                     quantity=item.quantity,
                     rental_start=item.rental_start,
                     rental_end=item.rental_end,
+                    parent_order_item_id=item.parent_order_item_id,
                 )
                 for item in order.items
             ],
@@ -165,16 +185,19 @@ class OrderService(BaseService, OrderServiceI):
         result = await session.execute(query)
         items = result.scalars().unique().all()
 
-        total = 0
+        # Sum half-day units across lines, divide once, floor once — see
+        # rental_pricing.py for why (odd-price half-day losses don't accumulate).
+        total_units = 0
         for item in items:
             if item.product:
-                total += calculate_rental_line_total(
+                total_units += line_half_day_units(
                     unit_price=item.product.price,
                     quantity=item.quantity,
                     rental_start=item.rental_start,
                     rental_end=item.rental_end,
+                    price_mode=item.product.price_mode,
                 )
-        return total
+        return floor_to_step(total_units // 2, BillingSettings().total_floor_step)
 
     async def earning_points(self, order_id: int):
         async with self.session() as session, session.begin():

@@ -83,6 +83,7 @@ function setupPriceZoom() {
     inline: false,
     navbar: false,
     title: false,
+    initialCoverage: 1,
     toolbar: {
       zoomIn: 1,
       zoomOut: 1,

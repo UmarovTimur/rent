@@ -10,7 +10,12 @@ from src.clients.database.models.product import Product
 from src.services.base import BaseService
 from src.services.errors import CategoryNotFoundError, ProductNotFoundError
 from src.services.product.interface import ProductServiceI
-from src.services.product.schemas import ProductCreate, ProductResponse, ProductUpdate
+from src.services.product.schemas import (
+    AddonResponse,
+    ProductCreate,
+    ProductResponse,
+    ProductUpdate,
+)
 from src.services.schemas import Image
 from src.services.static import products_path
 from src.services.utils import delete_image, save_image, try_commit
@@ -30,6 +35,8 @@ class ProductService(BaseService, ProductServiceI):
                 category_id=product_data.category_id,
                 price=product_data.price,
                 image_url=image_url,
+                is_addon=product_data.is_addon,
+                price_mode=product_data.price_mode,
             )
             session.add(new_product)
             await try_commit(session, new_product.name, delete_image, products_path)
@@ -45,11 +52,26 @@ class ProductService(BaseService, ProductServiceI):
 
     async def get_all(self) -> list[ProductResponse]:
         async with self.session() as session:
-            query = select(Product).options(selectinload(Product.category))
+            # Add-ons are hidden from the main catalog — offered only as options.
+            query = (
+                select(Product)
+                .where(Product.is_addon.is_(False))
+                .options(selectinload(Product.category))
+            )
             result = await session.execute(query)
             products = result.scalars().all()
             type_adapter = TypeAdapter(list[ProductResponse])
             return type_adapter.validate_python(products)
+
+    async def get_addons_for(self, product_id: int) -> list[AddonResponse]:
+        async with self.session() as session:
+            product = await session.get(
+                Product, product_id, options=[selectinload(Product.addons)]
+            )
+            if not product:
+                raise ProductNotFoundError
+            type_adapter = TypeAdapter(list[AddonResponse])
+            return type_adapter.validate_python(product.addons)
 
     async def get_by_name(self, product_name: str) -> ProductResponse:
         async with self.session() as session:
@@ -78,6 +100,10 @@ class ProductService(BaseService, ProductServiceI):
                     product.category_id = product_data.category_id
                 if product_data.price is not None:
                     product.price = product_data.price
+                if product_data.is_addon is not None:
+                    product.is_addon = product_data.is_addon
+                if product_data.price_mode is not None:
+                    product.price_mode = product_data.price_mode
                 if image_url:
                     if filename := product.image_url:
                         await delete_image(str(filename), products_path)
