@@ -141,6 +141,7 @@ export default function Card({ product, onClick, unavailable = false }: CardProp
                     size={{ base: '2xl', md: 'lg' }}
                     fontWeight="700"
                     textWrap="wrap"
+                    whiteSpace="pre-line"
                     lineClamp={{ md: 2 }}
                 >
                     {product.name}

@@ -335,6 +335,7 @@ export default function ProductPage({ product }: ProductPageProps) {
                         pos="relative"
                         w="full"
                         px={{ base: '36px', md: '0' }}
+                        whiteSpace="pre-line"
                     >
                         {product.name}
                     </Heading>
@@ -365,6 +366,7 @@ export default function ProductPage({ product }: ProductPageProps) {
                             alignSelf="stretch"
                             color="text"
                             opacity={0.8}
+                            whiteSpace="pre-line"
                             flex="1">
                             {product.description}
                         </Text>

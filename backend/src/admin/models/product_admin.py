@@ -5,7 +5,7 @@ from markupsafe import Markup
 from sqladmin import ModelView
 from sqlalchemy import update as sa_update
 from starlette.requests import Request
-from wtforms import MultipleFileField
+from wtforms import MultipleFileField, TextAreaField
 from wtforms.validators import Optional
 
 from src.clients.database.models.product import Product
@@ -72,8 +72,15 @@ class ProductAdmin(ModelView, model=Product):
         # Attach optional add-ons (other products, typically is_addon=True).
         "addons": {"fields": ["name"], "order_by": "name"},
     }
+    # Multiline title/description so line breaks can be entered and are preserved.
+    form_overrides = {
+        "name": TextAreaField,
+        "description": TextAreaField,
+    }
     form_widget_args = {
         "price": {"step": 1, "min": 0},
+        "name": {"rows": 2},
+        "description": {"rows": 5},
     }
     form_extra_fields = {
         "upload_images": MultipleFileField(

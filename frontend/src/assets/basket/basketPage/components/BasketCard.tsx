@@ -8,7 +8,6 @@ import { useDrawer } from '@/contexts/DrawerContext.tsx'
 import { RentalService } from '@/api/RentalService'
 import {
     formatRentalDaysRu,
-    formatRentalDateTimeRange,
     getBilledRentalDaysFromIso,
     previewLineTotalWithAddons,
 } from '@/utils/rental'
@@ -225,22 +224,10 @@ export default function BasketCard({ price }: CardProps) {
                     <DeleteProductButton onDelete={() => setIsDeleteDialogOpen(true)} />
 
                     <Flex paddingRight="45px" alignItems="flex-end" gap="8px">
-                        <Heading color="text" size="2xl" fontWeight="700">
+                        <Heading color="text" size="2xl" fontWeight="700" whiteSpace="pre-line">
                             {price.name}
                         </Heading>
                     </Flex>
-
-                    <Text
-                        color="text"
-                        fontWeight="400"
-                        opacity="0.5"
-                        textAlign="left"
-                        lineHeight="15px"
-                        fontSize="xs"
-                        minH="15px"
-                    >
-                        {formatRentalDateTimeRange(price.rental_start, price.rental_end)}
-                    </Text>
 
                     <Text
                         color="accent"
