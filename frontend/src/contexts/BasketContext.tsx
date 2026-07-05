@@ -6,7 +6,7 @@ import {
     useRef,
     useState,
 } from 'react'
-import { Basket, BasketItem, BasketItemAddon } from '@/types/Basket'
+import { Basket, BasketItem, BasketItemAddon, AddonSelection } from '@/types/Basket'
 import { BasketService } from '@/api/BasketService'
 import { ProductService } from '@/api/ProductService'
 import { RentalService } from '@/api/RentalService'
@@ -32,7 +32,7 @@ type BasketContextType = {
         quantity: number,
         rentalStart?: string,
         rentalEnd?: string,
-        addonProductIds?: number[]
+        addons?: AddonSelection[]
     ) => Promise<boolean>
     updateQuantity: (basketItemId: number, quantity: number) => Promise<void>
     clearError: () => void
@@ -171,7 +171,7 @@ export const BasketProvider = ({
         quantity: number = 1,
         rentalStart?: string,
         rentalEnd?: string,
-        addonProductIds: number[] = []
+        addons: AddonSelection[] = []
     ): Promise<boolean> => {
         setLoading(true)
         setError('')
@@ -196,7 +196,7 @@ export const BasketProvider = ({
                 quantity,
                 rentalStart,
                 rentalEnd,
-                addonProductIds
+                addons
             )
             await refreshBasket()
             return true
@@ -277,7 +277,7 @@ export const BasketProvider = ({
                         .join(',')
                 const groups = new Map<
                     string,
-                    { productId: number; addonIds: number[]; items: BasketItem[] }
+                    { productId: number; items: BasketItem[] }
                 >()
                 for (const item of rentalItems) {
                     const key = `${item.product_id}::${addonKey(item)}`
@@ -287,13 +287,12 @@ export const BasketProvider = ({
                     } else {
                         groups.set(key, {
                             productId: item.product_id,
-                            addonIds: (item.addons ?? []).map((a) => a.product_id),
                             items: [item],
                         })
                     }
                 }
 
-                for (const { productId, addonIds, items } of groups.values()) {
+                for (const { productId, items } of groups.values()) {
                     const staleItems = items.filter(
                         (item) =>
                             !hasSameRentalWindow(
@@ -303,6 +302,17 @@ export const BasketProvider = ({
                             )
                     )
                     if (staleItems.length === 0) continue
+
+                    // Preserve each add-on's own quantity when moving the line.
+                    const addonQty = new Map<number, number>()
+                    for (const it of staleItems) {
+                        for (const a of it.addons ?? []) {
+                            addonQty.set(a.product_id, (addonQty.get(a.product_id) ?? 0) + a.quantity)
+                        }
+                    }
+                    const addons: AddonSelection[] = [...addonQty].map(
+                        ([product_id, quantity]) => ({ product_id, quantity })
+                    )
 
                     const currentWindowItems = items.filter((item) =>
                         hasSameRentalWindow(item, rentalStartIso, rentalEndIso)
@@ -339,7 +349,7 @@ export const BasketProvider = ({
                             quantityToAdd,
                             rentalStartIso,
                             rentalEndIso,
-                            addonIds
+                            addons
                         )
                     }
 

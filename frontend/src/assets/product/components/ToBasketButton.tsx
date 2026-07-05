@@ -3,6 +3,7 @@ import { useDrawer } from '@/contexts/DrawerContext'
 import { useBasketContext } from '@/contexts/BasketContext'
 import { useTripDates } from '@/contexts/TripDatesContext'
 import { formatPriceK } from '@/utils/price'
+import { AddonSelection } from '@/types/Basket'
 
 type ToBasketProps = {
     currentPrice: number
@@ -10,7 +11,7 @@ type ToBasketProps = {
     quantity: number
     disabled?: boolean
     unavailable?: boolean
-    addonProductIds?: number[]
+    addons?: AddonSelection[]
 }
 
 export default function ToBasketButton({
@@ -19,7 +20,7 @@ export default function ToBasketButton({
     quantity,
     disabled = false,
     unavailable = false,
-    addonProductIds = [],
+    addons = [],
 }: ToBasketProps) {
     const { onClose } = useDrawer()
     const { addToBasket, loading } = useBasketContext()
@@ -33,7 +34,7 @@ export default function ToBasketButton({
             quantity,
             rentalStartIso,
             rentalEndIso,
-            addonProductIds
+            addons
         )
 
         if (success) onClose()

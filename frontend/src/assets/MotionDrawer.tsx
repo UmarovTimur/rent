@@ -25,6 +25,7 @@ export default function MotionDrawer({
     const [isDragging, setIsDragging] = useState(false)
     const [offset, setOffset] = useState(0)
     const [startY, setStartY] = useState(0)
+    const [startX, setStartX] = useState(0)
     const [drawerHeight, setDrawerHeight] = useState(0)
     const [startTime, setStartTime] = useState(0)
     const [velocity, setVelocity] = useState(0)
@@ -52,6 +53,7 @@ export default function MotionDrawer({
                 setPotentialDrag(true)
                 const touch = e.touches[0]
                 setStartY(touch.clientY)
+                setStartX(touch.clientX)
                 setStartTime(Date.now())
                 const rect = contentRef.current.getBoundingClientRect()
                 setDrawerHeight(rect.height)
@@ -67,7 +69,11 @@ export default function MotionDrawer({
 
             if (potentialDragRef.current && !isDraggingRef.current) {
                 const deltaY = touch.clientY - startY
-                if (deltaY > 5) {
+                const deltaX = touch.clientX - startX
+                // Horizontal-dominant move = a slider swipe, not a drawer drag — let it go.
+                if (Math.abs(deltaX) > 8 && Math.abs(deltaX) > Math.abs(deltaY)) {
+                    setPotentialDrag(false)
+                } else if (deltaY > 5 && deltaY > Math.abs(deltaX)) {
                     setIsDragging(true)
                     setPotentialDrag(false)
                     setOffset(deltaY)
@@ -84,7 +90,7 @@ export default function MotionDrawer({
                 e.preventDefault()
             }
         },
-        [startY, isDesktop]
+        [startY, startX, isDesktop]
     )
 
     const handleTouchEnd = useCallback(() => {

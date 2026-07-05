@@ -13,6 +13,8 @@ import {
     previewLineTotalWithAddons,
 } from '@/utils/rental'
 import { formatPriceK } from '@/utils/price'
+import { productImageSrc } from '@/utils/media'
+import ImageLightbox from '@/components/ImageLightbox'
 
 type CardProps = {
     price: ProductWithQuantity
@@ -26,6 +28,9 @@ export default function BasketCard({ price }: CardProps) {
     const updateTimeoutRef = useRef<number | null>(null)
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
     const [availableQuantity, setAvailableQuantity] = useState<number | null>(null)
+
+    // Tap the basket thumbnail to zoom it (same lightbox as the product page).
+    const [zoomOpen, setZoomOpen] = useState(false)
 
     useEffect(() => {
         setLocalQuantity(price.quantity)
@@ -159,7 +164,7 @@ export default function BasketCard({ price }: CardProps) {
         price.price,
         localQuantity,
         Math.round(billedDays * 2),
-        addons.map((a) => ({ price: a.price, price_mode: a.price_mode }))
+        addons.map((a) => ({ price: a.price, price_mode: a.price_mode, quantity: a.quantity }))
     )
 
     const handleDeleteConfirm = async () => {
@@ -188,13 +193,26 @@ export default function BasketCard({ price }: CardProps) {
                 gap="0"
             >
                 {price.image_url && (
-                    <Image
-                        src={`products/${price.image_url}`}
-                        h="full"
-                        minW="122px"
-                        marginRight="20px"
-                        alt={price.name}
-                    />
+                    <>
+                        <Image
+                            src={productImageSrc(price.image_url)}
+                            h="full"
+                            minW="122px"
+                            marginRight="20px"
+                            alt={price.name}
+                            cursor="zoom-in"
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                setZoomOpen(true)
+                            }}
+                        />
+                        <ImageLightbox
+                            open={zoomOpen}
+                            onClose={() => setZoomOpen(false)}
+                            images={[productImageSrc(price.image_url)]}
+                            alt={price.name}
+                        />
+                    </>
                 )}
                 <Flex
                     flexDirection="column"

@@ -6,6 +6,7 @@ from src.clients.database.models.product import Product, product_addon_links
 from src.services.base import BaseService
 from src.services.basket.interface import BasketServiceI
 from src.services.basket.schemas import (
+    AddonSelection,
     BasketDatesUpdate,
     BasketItemAddonResponse,
     BasketItemCreate,
@@ -122,17 +123,19 @@ class BasketService(BaseService, BasketServiceI):
             if not await session.get(Product, item_data.product_id):
                 raise ProductNotFoundError
 
-            addon_ids = await self._validate_addons(
-                session, item_data.product_id, item_data.addon_product_ids
+            valid_addons = await self._validate_addons(
+                session, item_data.product_id, item_data.addons
             )
+            addon_ids = [a.product_id for a in valid_addons]
 
             existing_item = await self._get_existing_item(session, basket, item_data, addon_ids)
 
             if existing_item:
                 existing_item.quantity += item_data.quantity
-                # Add-on quantity mirrors the parent's.
+                # Add-ons keep their own quantity, added on top of what's there.
+                qty_by_product = {a.product_id: a.quantity for a in valid_addons}
                 for addon in existing_item.addon_items:
-                    addon.quantity = existing_item.quantity
+                    addon.quantity += qty_by_product.get(addon.product_id, 0)
             else:
                 new_item = BasketItem(
                     basket_id=basket.basket_id,
@@ -144,12 +147,12 @@ class BasketService(BaseService, BasketServiceI):
                 session.add(new_item)
                 await session.flush()
 
-                for addon_id in addon_ids:
+                for addon in valid_addons:
                     session.add(
                         BasketItem(
                             basket_id=basket.basket_id,
-                            product_id=addon_id,
-                            quantity=item_data.quantity,  # = parent quantity
+                            product_id=addon.product_id,
+                            quantity=addon.quantity,  # add-on's own quantity
                             rental_start=item_data.rental_start,
                             rental_end=item_data.rental_end,
                             parent_basket_item_id=new_item.basket_item_id,
@@ -158,10 +161,10 @@ class BasketService(BaseService, BasketServiceI):
                 await session.flush()
 
     @staticmethod
-    async def _validate_addons(session, product_id: int, addon_product_ids: list[int]) -> list[int]:
-        """Keep only ids that are real, is_addon, and linked to this parent.
-        De-dupes while preserving order."""
-        if not addon_product_ids:
+    async def _validate_addons(session, product_id: int, addons: list[AddonSelection]) -> list[AddonSelection]:
+        """Keep only add-ons that are real, is_addon, and linked to this parent.
+        De-dupes by product_id while preserving order."""
+        if not addons:
             return []
 
         result = await session.execute(
@@ -172,11 +175,11 @@ class BasketService(BaseService, BasketServiceI):
         allowed = set(result.scalars().all())
 
         seen: set[int] = set()
-        valid: list[int] = []
-        for aid in addon_product_ids:
-            if aid in allowed and aid not in seen:
-                seen.add(aid)
-                valid.append(aid)
+        valid: list[AddonSelection] = []
+        for addon in addons:
+            if addon.product_id in allowed and addon.product_id not in seen:
+                seen.add(addon.product_id)
+                valid.append(addon)
         return valid
 
     @staticmethod

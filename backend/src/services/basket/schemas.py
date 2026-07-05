@@ -3,13 +3,18 @@ from datetime import datetime
 from pydantic import BaseModel, Field, model_validator
 
 
+class AddonSelection(BaseModel):
+    product_id: int
+    quantity: int = Field(1, ge=1)
+
+
 class BasketItemCreate(BaseModel):
     product_id: int
     quantity: int = Field(..., ge=1)
     rental_start: datetime | None = None
     rental_end: datetime | None = None
-    # Selected add-on product ids to attach to this line as child items.
-    addon_product_ids: list[int] = Field(default_factory=list)
+    # Selected add-ons (each with its own quantity) attached as child items.
+    addons: list[AddonSelection] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def validate_rental_range(self):

@@ -1,3 +1,8 @@
+export interface AddonSelection {
+    product_id: number
+    quantity: number
+}
+
 export interface BasketItemAddon {
     basket_item_id: number
     product_id: number

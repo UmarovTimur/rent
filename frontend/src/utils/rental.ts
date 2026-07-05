@@ -226,11 +226,12 @@ export const previewLineTotalWithAddons = (
     unitPrice: number,
     quantity: number,
     halfDays: number,
-    addons: { price: number; price_mode: 'per_day' | 'flat' }[]
+    addons: { price: number; price_mode: 'per_day' | 'flat'; quantity: number }[]
 ): number => {
     let units = lineHalfDayUnits(unitPrice, quantity, halfDays, 'per_day')
     for (const a of addons) {
-        units += lineHalfDayUnits(a.price, quantity, halfDays, a.price_mode)
+        // Each add-on is billed by its own quantity, independent of the parent.
+        units += lineHalfDayUnits(a.price, a.quantity, halfDays, a.price_mode)
     }
     return floorToStep(Math.floor(units / 2), BILLING.totalFloorStep)
 }

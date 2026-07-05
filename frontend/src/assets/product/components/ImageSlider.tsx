@@ -1,97 +1,156 @@
 import { Box, Flex } from '@chakra-ui/react'
-import { AnimatePresence, motion } from 'framer-motion'
-import { useRef, useState } from 'react'
+import { animate, motion, PanInfo, useMotionValue } from 'framer-motion'
+import { useEffect, useRef, useState } from 'react'
+import { IoExpandOutline } from 'react-icons/io5'
+import ImageLightbox from '@/components/ImageLightbox'
 
 type Props = {
     images: string[]
     rounded?: string | object
     width?: string | object
     maxW?: string | object
+    aspectRatio?: string | number | object
     alt?: string
 }
 
-export default function ImageSlider({ images, rounded, width, maxW, alt }: Props) {
+const spring = { type: 'spring', stiffness: 500, damping: 45 } as const
+// A press only counts as a tap (open zoom) if the finger moved less than this.
+const TAP_MOVE_TOLERANCE = 8
+
+export default function ImageSlider({ images, rounded, width, maxW, aspectRatio = 2 / 3, alt }: Props) {
     const [idx, setIdx] = useState(0)
-    const [dir, setDir] = useState(0)
-    const touchStartX = useRef<number | null>(null)
+    const [zoomOpen, setZoomOpen] = useState(false)
+    const containerRef = useRef<HTMLDivElement | null>(null)
+    const pressStart = useRef<{ x: number; y: number } | null>(null)
+    const x = useMotionValue(0)
 
-    const goTo = (next: number) => {
-        if (next === idx) return
-        setDir(next > idx ? 1 : -1)
-        setIdx(next)
+    const w = () => containerRef.current?.offsetWidth ?? 0
+
+    // Keep the strip aligned to the current slide when idx changes or on resize.
+    useEffect(() => {
+        const controls = animate(x, -idx * w(), spring)
+        const el = containerRef.current
+        const ro = el ? new ResizeObserver(() => x.set(-idx * w())) : null
+        if (el && ro) ro.observe(el)
+        return () => {
+            controls.stop()
+            ro?.disconnect()
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [idx, images.length])
+
+    const handleDragEnd = (_: unknown, info: PanInfo) => {
+        const width = w() || 1
+        const off = info.offset.x
+        const vel = info.velocity.x
+        let next = idx
+        if ((off < -width * 0.2 || vel < -400) && idx < images.length - 1) next = idx + 1
+        else if ((off > width * 0.2 || vel > 400) && idx > 0) next = idx - 1
+        if (next === idx) animate(x, -idx * width, spring)
+        else setIdx(next)
     }
 
-    const handleTouchStart = (e: React.TouchEvent) => {
-        touchStartX.current = e.touches[0].clientX
+    // Manual tap detection: only open the zoom when the pointer barely moved,
+    // so a swipe (slide change) never triggers it.
+    const handlePointerDown = (e: React.PointerEvent) => {
+        pressStart.current = { x: e.clientX, y: e.clientY }
     }
-
-    const handleTouchEnd = (e: React.TouchEvent) => {
-        if (touchStartX.current === null) return
-        const diff = touchStartX.current - e.changedTouches[0].clientX
-        if (Math.abs(diff) > 40) goTo(diff > 0 ? Math.min(images.length - 1, idx + 1) : Math.max(0, idx - 1))
-        touchStartX.current = null
+    const handlePointerUp = (e: React.PointerEvent) => {
+        const start = pressStart.current
+        pressStart.current = null
+        if (!start) return
+        const moved = Math.hypot(e.clientX - start.x, e.clientY - start.y)
+        if (moved < TAP_MOVE_TOLERANCE) setZoomOpen(true)
     }
-
-    const src = images[idx] ?? 'shava.png'
 
     return (
         <Box
+            ref={containerRef}
             position="relative"
             width={width}
             maxW={maxW}
+            aspectRatio={aspectRatio}
             overflow="hidden"
             rounded={rounded}
-            onTouchStart={handleTouchStart}
-            onTouchEnd={handleTouchEnd}
         >
-            <AnimatePresence mode="wait" initial={false} custom={dir}>
-                <motion.img
-                    key={src}
-                    src={src}
-                    alt={alt}
-                    custom={dir}
-                    initial={{ opacity: 0, x: `${dir * 40}%` }}
-                    animate={{ opacity: 1, x: '0%' }}
-                    exit={{ opacity: 0, x: `${-dir * 40}%` }}
-                    transition={{ duration: 0.22, ease: 'easeInOut' }}
-                    style={{ width: '100%', display: 'block', objectFit: 'cover' }}
-                />
-            </AnimatePresence>
+            {/* Draggable strip — follows the finger in real time, snaps on release */}
+            <motion.div
+                drag={images.length > 1 ? 'x' : false}
+                dragConstraints={containerRef}
+                dragElastic={0.12}
+                dragMomentum={false}
+                onDragEnd={handleDragEnd}
+                onPointerDown={handlePointerDown}
+                onPointerUp={handlePointerUp}
+                style={{
+                    x,
+                    display: 'flex',
+                    height: '100%',
+                    width: `${images.length * 100}%`,
+                    cursor: images.length > 1 ? 'grab' : 'zoom-in',
+                    touchAction: 'pan-y',
+                }}
+            >
+                {images.map((s, i) => (
+                    <img
+                        key={i}
+                        src={s}
+                        alt={alt}
+                        draggable={false}
+                        style={{
+                            width: `${100 / images.length}%`,
+                            height: '100%',
+                            objectFit: 'contain',
+                            objectPosition: 'center',
+                            flexShrink: 0,
+                            pointerEvents: 'none',
+                            userSelect: 'none',
+                        }}
+                    />
+                ))}
+            </motion.div>
 
             {images.length > 1 && (
-                <>
-                    {/* Left tap */}
-                    <Box
-                        position="absolute" left="0" top="0"
-                        w="45%" h="full" zIndex="1" cursor="pointer"
-                        onClick={() => goTo(Math.max(0, idx - 1))}
-                    />
-                    {/* Right tap */}
-                    <Box
-                        position="absolute" right="0" top="0"
-                        w="45%" h="full" zIndex="1" cursor="pointer"
-                        onClick={() => goTo(Math.min(images.length - 1, idx + 1))}
-                    />
-                    {/* Pagination dots */}
-                    <Flex
-                        position="absolute" bottom="10px" left="0" right="0"
-                        justify="center" gap="5px" zIndex="2" pointerEvents="none"
-                    >
-                        {images.map((_, i) => (
-                            <Box
-                                key={i}
-                                h="5px"
-                                rounded="full"
-                                bg={i === idx ? 'white' : 'rgba(255,255,255,0.45)'}
-                                style={{
-                                    width: i === idx ? '18px' : '5px',
-                                    transition: 'all 0.25s ease',
-                                }}
-                            />
-                        ))}
-                    </Flex>
-                </>
+                <Flex
+                    position="absolute" bottom="10px" left="0" right="0"
+                    justify="center" gap="5px" zIndex="2"
+                    style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.65))' }}
+                >
+                    {images.map((_, i) => (
+                        <Box
+                            key={i}
+                            h="5px"
+                            rounded="full"
+                            cursor="pointer"
+                            bg={i === idx ? 'white' : 'rgba(255,255,255,0.55)'}
+                            onClick={() => setIdx(i)}
+                            style={{
+                                width: i === idx ? '18px' : '5px',
+                                transition: 'all 0.25s ease',
+                            }}
+                        />
+                    ))}
+                </Flex>
             )}
+
+            {/* Explicit zoom button as well */}
+            <Flex
+                position="absolute" top="10px" right="10px" zIndex="3"
+                align="center" justify="center"
+                w="34px" h="34px" rounded="full" cursor="pointer"
+                bg="rgba(0,0,0,0.45)" color="white" fontSize="18px"
+                onClick={() => setZoomOpen(true)}
+            >
+                <IoExpandOutline />
+            </Flex>
+
+            <ImageLightbox
+                open={zoomOpen}
+                onClose={() => setZoomOpen(false)}
+                images={images}
+                index={idx}
+                alt={alt}
+            />
         </Box>
     )
 }

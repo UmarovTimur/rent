@@ -10,7 +10,7 @@ import {
 } from '@chakra-ui/react'
 import { useEffect, useMemo, useState } from 'react'
 import { IoClose } from 'react-icons/io5'
-import { FiCheck } from 'react-icons/fi'
+import { FiCheck, FiMinus, FiPlus } from 'react-icons/fi'
 import { Addon, Product } from '@/types/Products'
 import CustomNumberInput from './components/CustomNumberInput'
 import ToBasketButton from './components/ToBasketButton'
@@ -22,6 +22,7 @@ import LimitDialog from './components/LimitDialog'
 import { RentalService } from '@/api/RentalService'
 import { ProductService } from '@/api/ProductService'
 import { formatPriceK } from '@/utils/price'
+import { productImageSrc } from '@/utils/media'
 import {
     formatInputDate,
     formatRentalDaysRu,
@@ -40,8 +41,10 @@ export default function ProductPage({ product }: ProductPageProps) {
     const [availableQuantity, setAvailableQuantity] = useState<number | null>(null)
     const [availabilityLoading, setAvailabilityLoading] = useState(false)
     const [addons, setAddons] = useState<Addon[]>([])
-    const [addonAvailable, setAddonAvailable] = useState<Record<number, boolean>>({})
-    const [selectedAddonIds, setSelectedAddonIds] = useState<number[]>([])
+    // Max quantity of each add-on available for the window (0 = unavailable).
+    const [addonMax, setAddonMax] = useState<Record<number, number>>({})
+    // Selected add-ons -> chosen quantity (absent/0 = not selected).
+    const [addonQty, setAddonQty] = useState<Record<number, number>>({})
 
     const { onClose } = useDrawer()
     const { error, clearError, basketProducts } = useBasketContext()
@@ -173,7 +176,7 @@ export default function ProductPage({ product }: ProductPageProps) {
     // Per-add-on availability for the chosen window (same calendar as products).
     useEffect(() => {
         if (!datesConfirmed || !rentalStartIso || !rentalEndIso || addons.length === 0) {
-            setAddonAvailable({})
+            setAddonMax({})
             return
         }
         let cancelled = false
@@ -185,30 +188,40 @@ export default function ProductPage({ product }: ProductPageProps) {
                         rentalStartIso,
                         rentalEndIso
                     )
-                    const ok =
-                        cal.slots.length > 0 &&
-                        cal.slots.every(
-                            (s) => s.is_available && s.available_quantity > 0
-                        )
-                    return [a.product_id, ok] as const
+                    // Max units bookable = smallest availability across the window.
+                    const max =
+                        cal.slots.length > 0
+                            ? Math.min(
+                                  ...cal.slots.map((s) =>
+                                      s.is_available ? s.available_quantity : 0
+                                  )
+                              )
+                            : 0
+                    return [a.product_id, Math.max(0, max)] as const
                 } catch {
-                    return [a.product_id, false] as const
+                    return [a.product_id, 0] as const
                 }
             })
         ).then((res) => {
-            if (!cancelled) setAddonAvailable(Object.fromEntries(res))
+            if (!cancelled) setAddonMax(Object.fromEntries(res))
         })
         return () => {
             cancelled = true
         }
     }, [addons, datesConfirmed, rentalStartIso, rentalEndIso])
 
-    // Drop any selected add-on that became unavailable for the window.
+    // Drop / clamp selected add-ons when availability for the window changes.
     useEffect(() => {
-        setSelectedAddonIds((prev) =>
-            prev.filter((id) => addonAvailable[id] !== false)
-        )
-    }, [addonAvailable])
+        setAddonQty((prev) => {
+            const next: Record<number, number> = {}
+            for (const [id, qty] of Object.entries(prev)) {
+                const max = addonMax[Number(id)]
+                if (max === undefined) next[Number(id)] = qty
+                else if (max > 0) next[Number(id)] = Math.min(qty, max)
+            }
+            return next
+        })
+    }, [addonMax])
 
     const handleCloseDialog = () => {
         setShowLimitDialog(false)
@@ -221,6 +234,11 @@ export default function ProductPage({ product }: ProductPageProps) {
             : Math.max(1, Math.min(99, remainingAvailableQuantity))
     const isUnavailableForDates =
         hasValidRange && !availabilityLoading && remainingAvailableQuantity === 0
+    // When the item can't be added and the button shows the reason why (dates not
+    // chosen / unavailable on these dates), hide the +/- stepper so the button takes
+    // the full width.
+    const needsDates = !hasValidRange || !datesConfirmed
+    const canAddToBasket = !needsDates && !isUnavailableForDates
     const tripDurationDays =
         hasValidRange && rentalStartIso && rentalEndIso
             ? getBilledRentalDaysFromIso(rentalStartIso, rentalEndIso) ?? 1
@@ -230,29 +248,46 @@ export default function ProductPage({ product }: ProductPageProps) {
     const formattedEndDate = formatInputDate(endDate)
 
     const isAddonDisabled = (addonId: number) =>
-        datesConfirmed && addonAvailable[addonId] === false
+        datesConfirmed && addonMax[addonId] === 0
+    const addonMaxQty = (addonId: number) =>
+        Math.max(1, Math.min(99, addonMax[addonId] ?? 99))
     const toggleAddon = (addonId: number) => {
         if (isAddonDisabled(addonId)) return
-        setSelectedAddonIds((prev) =>
-            prev.includes(addonId)
-                ? prev.filter((x) => x !== addonId)
-                : [...prev, addonId]
-        )
+        setAddonQty((prev) => {
+            const next = { ...prev }
+            if (next[addonId]) delete next[addonId]
+            else next[addonId] = 1
+            return next
+        })
+    }
+    const setAddonQuantity = (addonId: number, qty: number) => {
+        setAddonQty((prev) => {
+            const next = { ...prev }
+            if (qty <= 0) delete next[addonId]
+            else next[addonId] = Math.min(qty, addonMaxQty(addonId))
+            return next
+        })
     }
     const selectedAddons = useMemo(
         () =>
-            addons.filter(
-                (a) =>
-                    selectedAddonIds.includes(a.product_id) &&
-                    addonAvailable[a.product_id] !== false
-            ),
-        [addons, selectedAddonIds, addonAvailable]
+            addons
+                .filter(
+                    (a) =>
+                        (addonQty[a.product_id] ?? 0) > 0 &&
+                        addonMax[a.product_id] !== 0
+                )
+                .map((a) => ({ ...a, quantity: addonQty[a.product_id] })),
+        [addons, addonQty, addonMax]
     )
     const currentPrice = previewLineTotalWithAddons(
         selectedProduct.price,
         tempQuantity,
         tripHalfDays,
-        selectedAddons.map((a) => ({ price: a.price, price_mode: a.price_mode }))
+        selectedAddons.map((a) => ({
+            price: a.price,
+            price_mode: a.price_mode,
+            quantity: a.quantity,
+        }))
     )
 
     return (
@@ -281,14 +316,14 @@ export default function ProductPage({ product }: ProductPageProps) {
                     <ImageSlider
                         images={(() => {
                             const all = [
-                                ...(product.image_url ? [`products/${product.image_url}`] : []),
-                                ...(product.image_urls ?? []).map(u => `products/${u}`),
+                                ...(product.image_url ? [productImageSrc(product.image_url)] : []),
+                                ...(product.image_urls ?? []).map(productImageSrc),
                             ]
                             return all.length > 0 ? all : ['shava.png']
                         })()}
-                        rounded={{ base: '32px 32px 0 0', sm: '42px 42px 0 0' }}
-                        width={{ base: '80%', sm: '70%', md: '72%', lg: '60%' }}
-                        maxW={{ base: '360px', md: '560px' }}
+                        rounded={{ base: '32px', sm: '42px' }}
+                        width={{ base: '62%', sm: '54%', md: '56%', lg: '46%' }}
+                        maxW={{ base: '260px', md: '400px' }}
                         alt={product.name}
                     />
                     <Heading
@@ -296,11 +331,10 @@ export default function ProductPage({ product }: ProductPageProps) {
                         fontWeight="800"
                         color="text"
                         textAlign="center"
-                        mt={{ base: '-30px', md: '10px' }}
+                        mt={{ base: '16px', md: '16px' }}
                         pos="relative"
                         w="full"
                         px={{ base: '36px', md: '0' }}
-                        textShadow="0px -1px 5px rgba(0,0,0,0.65);"
                     >
                         {product.name}
                     </Heading>
@@ -388,11 +422,13 @@ export default function ProductPage({ product }: ProductPageProps) {
                                 <Flex direction="column" gap="8px">
                                     {addons.map((addon) => {
                                         const disabled = isAddonDisabled(addon.product_id)
-                                        const checked = selectedAddonIds.includes(addon.product_id) && !disabled
+                                        const qty = addonQty[addon.product_id] ?? 0
+                                        const checked = qty > 0 && !disabled
+                                        const max = addonMaxQty(addon.product_id)
                                         return (
                                             <Flex
                                                 key={addon.product_id}
-                                                as="button"
+                                                role="button"
                                                 onClick={() => toggleAddon(addon.product_id)}
                                                 align="center"
                                                 gap="12px"
@@ -430,6 +466,50 @@ export default function ProductPage({ product }: ProductPageProps) {
                                                         </Text>
                                                     )}
                                                 </Flex>
+
+                                                {checked && (
+                                                    <Flex
+                                                        align="center"
+                                                        gap="7px"
+                                                        flexShrink={0}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    >
+                                                        <Center
+                                                            as="button"
+                                                            h="26px"
+                                                            w="26px"
+                                                            rounded="full"
+                                                            borderWidth="1.5px"
+                                                            borderColor="gray"
+                                                            color="text"
+                                                            onClick={() =>
+                                                                setAddonQuantity(addon.product_id, qty - 1)
+                                                            }
+                                                        >
+                                                            <FiMinus size={13} />
+                                                        </Center>
+                                                        <Text minW="16px" textAlign="center" fontWeight="700">
+                                                            {qty}
+                                                        </Text>
+                                                        <Center
+                                                            as="button"
+                                                            h="26px"
+                                                            w="26px"
+                                                            rounded="full"
+                                                            borderWidth="1.5px"
+                                                            borderColor={qty >= max ? 'gray' : 'accent'}
+                                                            color={qty >= max ? 'gray' : 'accent'}
+                                                            opacity={qty >= max ? 0.5 : 1}
+                                                            cursor={qty >= max ? 'not-allowed' : 'pointer'}
+                                                            onClick={() =>
+                                                                setAddonQuantity(addon.product_id, qty + 1)
+                                                            }
+                                                        >
+                                                            <FiPlus size={13} />
+                                                        </Center>
+                                                    </Flex>
+                                                )}
+
                                                 <Text fontWeight="700" color="accent" flexShrink={0}>
                                                     +{formatPriceK(addon.price)}
                                                     <Text as="span" fontSize="xs" opacity={0.7} color="text" ml="2px">
@@ -453,7 +533,7 @@ export default function ProductPage({ product }: ProductPageProps) {
                     mx="auto"
                     gap="gap"
                 >
-                    {!isUnavailableForDates && (
+                    {canAddToBasket && (
                         <CustomNumberInput
                             value={tempQuantity.toString()}
                             max={maxSelectableQuantity}
@@ -469,7 +549,10 @@ export default function ProductPage({ product }: ProductPageProps) {
                         quantity={tempQuantity}
                         disabled={availabilityLoading || isUnavailableForDates}
                         unavailable={isUnavailableForDates}
-                        addonProductIds={selectedAddons.map((a) => a.product_id)}
+                        addons={selectedAddons.map((a) => ({
+                            product_id: a.product_id,
+                            quantity: a.quantity,
+                        }))}
                     />
                 </Flex>
             </Drawer.Footer>

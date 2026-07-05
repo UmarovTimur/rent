@@ -2,6 +2,7 @@ import React, { useCallback, useState } from 'react'
 import { Text, Flex, Button, Image, Heading, Mark, Box } from '@chakra-ui/react'
 import { Product } from '@/types/Products.ts'
 import { formatPriceK } from '@/utils/price'
+import { productImageSrc } from '@/utils/media'
 
 type CardProps = {
     product: Product
@@ -13,8 +14,8 @@ export default function Card({ product, onClick, unavailable = false }: CardProp
     const [hoverIdx, setHoverIdx] = useState(0)
 
     const allImages: string[] = [
-        ...(product.image_url ? [`products/${product.image_url}`] : []),
-        ...(product.image_urls ?? []).map(u => `products/${u}`),
+        ...(product.image_url ? [productImageSrc(product.image_url)] : []),
+        ...(product.image_urls ?? []).map(productImageSrc),
     ]
     if (allImages.length === 0) allImages.push('shava.png')
 

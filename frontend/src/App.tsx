@@ -30,8 +30,40 @@ declare global {
                 }
                 ready: () => void
                 close: () => void
+                expand?: () => void
+                disableVerticalSwipes?: () => void
+                safeAreaInset?: { top: number; right: number; bottom: number; left: number }
+                contentSafeAreaInset?: { top: number; right: number; bottom: number; left: number }
+                onEvent?: (event: string, handler: () => void) => void
+                offEvent?: (event: string, handler: () => void) => void
             }
         }
+    }
+}
+
+// Telegram exposes the notch/overlay-button insets via JS; mirror them into CSS
+// variables (--tg-safe-area-inset-* / --tg-content-safe-area-inset-*) so the layout
+// can pad content out from under Telegram's buttons that sit on top of it.
+function syncTelegramSafeArea() {
+    const wa = window.Telegram?.WebApp
+    if (!wa) return () => {}
+    const root = document.documentElement
+    const apply = () => {
+        const set = (name: string, v?: number) =>
+            root.style.setProperty(name, `${Math.max(0, v ?? 0)}px`)
+        set('--tg-safe-area-inset-top', wa.safeAreaInset?.top)
+        set('--tg-safe-area-inset-bottom', wa.safeAreaInset?.bottom)
+        set('--tg-content-safe-area-inset-top', wa.contentSafeAreaInset?.top)
+        set('--tg-content-safe-area-inset-bottom', wa.contentSafeAreaInset?.bottom)
+    }
+    apply()
+    wa.onEvent?.('safeAreaChanged', apply)
+    wa.onEvent?.('contentSafeAreaChanged', apply)
+    wa.onEvent?.('viewportChanged', apply)
+    return () => {
+        wa.offEvent?.('safeAreaChanged', apply)
+        wa.offEvent?.('contentSafeAreaChanged', apply)
+        wa.offEvent?.('viewportChanged', apply)
     }
 }
 
@@ -54,21 +86,28 @@ export default function App() {
     useEffect(() => {
         if (window.Telegram?.WebApp) {
             window.Telegram.WebApp.ready()
+            // Take the full height and stop Telegram from closing/minimising the
+            // Mini App on vertical swipes — otherwise pinching in the image zoom or
+            // a slight downward drag while swiping the slider dismisses the app.
+            window.Telegram.WebApp.expand?.()
+            window.Telegram.WebApp.disableVerticalSwipes?.()
         }
+        const cleanupSafeArea = syncTelegramSafeArea()
 
         const telegramId = window?.Telegram?.WebApp?.initDataUnsafe?.user?.id
         if (telegramId) {
             setUserId(telegramId)
-            return
+            return cleanupSafeArea
         }
 
         const stored = AuthService.getStoredUserId()
         if (stored) {
             setUserId(stored)
-            return
+            return cleanupSafeArea
         }
 
         setNeedAuth(true)
+        return cleanupSafeArea
     }, [])
 
     if (error) {

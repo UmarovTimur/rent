@@ -1,6 +1,6 @@
 import axios from 'axios'
 import API_BASE_URL from '@/config'
-import { Basket } from '@/types/Basket'
+import { Basket, AddonSelection } from '@/types/Basket'
 
 const isBasketNotFoundError = (error: unknown): boolean => {
     if (!axios.isAxiosError(error)) return false
@@ -28,7 +28,7 @@ export const BasketService = {
         quantity: number = 1,
         rentalStart?: string,
         rentalEnd?: string,
-        addonProductIds: number[] = []
+        addons: AddonSelection[] = []
     ): Promise<void> {
         await axios.post(
             `${API_BASE_URL}api/v1/basket/add_item?user_id=${userId}`,
@@ -37,7 +37,7 @@ export const BasketService = {
                 quantity,
                 rental_start: rentalStart,
                 rental_end: rentalEnd,
-                addon_product_ids: addonProductIds,
+                addons,
             }
         )
     },
