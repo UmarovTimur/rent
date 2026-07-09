@@ -35,6 +35,21 @@ export default function MotionDrawer({
     const contentRef = useRef<HTMLDivElement>(null)
     const isDraggingRef = useRef(isDragging)
     const potentialDragRef = useRef(potentialDrag)
+    // The scrollable element under the initial touch (e.g. Drawer.Body); the
+    // close-gesture may only start when it is scrolled to the very top.
+    const touchScrollableRef = useRef<HTMLElement | null>(null)
+
+    const findScrollable = (start: EventTarget | null): HTMLElement | null => {
+        let el = start instanceof Element ? start : null
+        while (el && el !== contentRef.current) {
+            if (el instanceof HTMLElement && el.scrollHeight > el.clientHeight + 1) {
+                const overflowY = getComputedStyle(el).overflowY
+                if (overflowY === 'auto' || overflowY === 'scroll') return el
+            }
+            el = el.parentElement
+        }
+        return null
+    }
 
     const setDrawerOpen = useCallback((nextOpen: boolean) => {
         setIsOpen(nextOpen)
@@ -50,6 +65,12 @@ export default function MotionDrawer({
         (e: React.TouchEvent<HTMLDivElement>) => {
             if (isDesktop) return
             if (contentRef.current && contentRef.current.scrollTop === 0) {
+                // If the touch begins inside a scrolled-down container (e.g. the
+                // product page body), let it scroll — don't arm the close gesture.
+                const scrollable = findScrollable(e.target)
+                touchScrollableRef.current = scrollable
+                if (scrollable && scrollable.scrollTop > 0) return
+
                 setPotentialDrag(true)
                 const touch = e.touches[0]
                 setStartY(touch.clientY)
@@ -72,6 +93,9 @@ export default function MotionDrawer({
                 const deltaX = touch.clientX - startX
                 // Horizontal-dominant move = a slider swipe, not a drawer drag — let it go.
                 if (Math.abs(deltaX) > 8 && Math.abs(deltaX) > Math.abs(deltaY)) {
+                    setPotentialDrag(false)
+                } else if (touchScrollableRef.current && touchScrollableRef.current.scrollTop > 0) {
+                    // The inner container started scrolling — this is a scroll, not a close.
                     setPotentialDrag(false)
                 } else if (deltaY > 5 && deltaY > Math.abs(deltaX)) {
                     setIsDragging(true)
@@ -209,7 +233,7 @@ export default function MotionDrawer({
                             rounded="42px"
                             bg="card"
                             shadow="none"
-                            touchAction="none"
+                            touchAction="pan-y"
                             display="flex"
                             flexDirection="column"
                         >

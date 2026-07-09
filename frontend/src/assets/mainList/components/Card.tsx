@@ -179,7 +179,7 @@ export default function Card({ product, onClick, unavailable = false }: CardProp
                         fontSize="s"
                         fontWeight="500"
                     >
-                        <Mark color="accent">{formatPriceK(product.price)}&nbsp;</Mark>в день
+                        <Mark color="accent">{formatPriceK(product.display_price ?? product.price)}&nbsp;</Mark>в день
                     </Flex>
 
                     <Flex

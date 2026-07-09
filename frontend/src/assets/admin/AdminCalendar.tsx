@@ -79,9 +79,17 @@ export default function AdminCalendar() {
     const refetch = () => calendarRef.current?.getApi().refetchEvents()
 
     return (
-        // Шапка дней недели у FullCalendar остаётся белой в тёмной теме,
-        // поэтому названия дней красим в цвет фона приложения, чтобы они читались.
-        <Box css={{ '& .fc-col-header-cell-cushion': { color: 'var(--chakra-colors-back)' } }}>
+        // FullCalendar's grid (header row + day cells + list-view day headers) has a
+        // light background in both themes, but text inherits the app's colour (white
+        // in dark theme) → white-on-light. Force those labels dark. The toolbar
+        // (title/buttons) sits on the app background and keeps the theme colour.
+        <Box
+            css={{
+                '& .fc-col-header-cell-cushion': { color: '#1a1a1a' }, // weekday names
+                '& .fc-daygrid-day-number': { color: '#1a1a1a' }, // date numbers
+                '& .fc-list-day-text, & .fc-list-day-side-text': { color: '#1a1a1a' }, // list-view day headers
+            }}
+        >
             <Flex gap="2" wrap="wrap" mb="4">
                 {ALL_STATUSES.map((status) => {
                     const meta = RENTAL_STATUS_MAP[status]

@@ -238,10 +238,8 @@ class BasketService(BaseService, BasketServiceI):
 
     async def change_quantity(self, quantity_update: QuantityUpdate) -> None:
         async with self.session() as session, session.begin():
-            query = (
-                select(BasketItem)
-                .where(BasketItem.basket_item_id == quantity_update.basket_item_id)
-                .options(selectinload(BasketItem.addon_items))
+            query = select(BasketItem).where(
+                BasketItem.basket_item_id == quantity_update.basket_item_id
             )
             result = await session.execute(query)
             item = result.scalar()
@@ -249,7 +247,6 @@ class BasketService(BaseService, BasketServiceI):
             if not item:
                 raise BasketItemNotFoundError
 
+            # Add-ons keep their own quantity (kit components / opt-in add-ons are
+            # edited independently) — only the line itself changes here.
             item.quantity = quantity_update.quantity
-            # Add-on quantity mirrors the parent line's quantity.
-            for addon in item.addon_items:
-                addon.quantity = quantity_update.quantity

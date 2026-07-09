@@ -9,7 +9,6 @@ import {
     Input,
     Alert,
 } from '@chakra-ui/react'
-import { useRef } from 'react'
 // import Bonuses from './components/Bonuses.tsx'
 import ProfileButton from './components/ProfileButton.tsx'
 import TashkentClock from './components/TashkentClock.tsx'
@@ -38,35 +37,23 @@ type DatePickerFieldProps = {
 }
 
 const DatePickerField = ({ value, onChange, min, confirmed }: DatePickerFieldProps) => {
-    const inputRef = useRef<HTMLInputElement | null>(null)
-
-    const openPicker = () => {
-        const input = inputRef.current
-        if (!input) return
-
-        if ('showPicker' in input && typeof input.showPicker === 'function') {
-            input.showPicker()
-            return
+    // The date <input> sits transparently on top and is tapped directly (like the
+    // time input) — iOS only opens the native date picker on a real tap on the
+    // input, not on a programmatic open of a pointer-events:none element.
+    const openPicker = (e: React.MouseEvent<HTMLInputElement>) => {
+        const input = e.currentTarget
+        try {
+            if (typeof input.showPicker === 'function') {
+                input.showPicker()
+            }
+        } catch {
+            // showPicker may be blocked (older browsers) — the native tap on the
+            // input already opens the picker on mobile, so this is best-effort.
         }
-
-        input.focus()
-        input.click()
     }
 
     return (
-        <Box
-            position="relative"
-            flex="1"
-            role="button"
-            tabIndex={0}
-            onClick={openPicker}
-            onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault()
-                    openPicker()
-                }
-            }}
-        >
+        <Box position="relative" flex="1">
             <Flex
                 bg={confirmed ? 'green.500/10' : 'red.500/10'}
                 borderWidth="1.5px"
@@ -80,16 +67,17 @@ const DatePickerField = ({ value, onChange, min, confirmed }: DatePickerFieldPro
                 <Text fontSize="sm">{formatInputDate(value)}</Text>
             </Flex>
             <Input
-                ref={inputRef}
                 type="date"
                 lang="ru-RU"
+                aria-label="Дата поездки"
                 value={value}
                 min={min}
                 onChange={(e) => onChange(e.target.value)}
+                onClick={openPicker}
                 position="absolute"
                 inset="0"
                 opacity="0"
-                pointerEvents="none"
+                cursor="pointer"
             />
         </Box>
     )

@@ -1,12 +1,12 @@
 from collections.abc import Callable
 
 from pydantic import TypeAdapter
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.clients.database.models.category import Category
-from src.clients.database.models.product import Product
+from src.clients.database.models.product import Product, ProductAddonLink
 from src.services.base import BaseService
 from src.services.errors import CategoryNotFoundError, ProductNotFoundError
 from src.services.product.interface import ProductServiceI
@@ -60,18 +60,58 @@ class ProductService(BaseService, ProductServiceI):
             )
             result = await session.execute(query)
             products = result.scalars().all()
-            type_adapter = TypeAdapter(list[ProductResponse])
-            return type_adapter.validate_python(products)
+
+            kit_sums = await self._kit_price_sums(session, [p.product_id for p in products])
+
+            responses = []
+            for p in products:
+                response = ProductResponse.model_validate(p)
+                response.display_price = p.price + kit_sums.get(p.product_id, 0)
+                responses.append(response)
+            return responses
+
+    @staticmethod
+    async def _kit_price_sums(session, product_ids: list[int]) -> dict[int, int]:
+        """Sum of (child price × default_quantity) per parent, for pre-included
+        kit components only (default_quantity > 0). Optional add-ons don't count."""
+        if not product_ids:
+            return {}
+        result = await session.execute(
+            select(
+                ProductAddonLink.parent_product_id,
+                func.sum(ProductAddonLink.default_quantity * Product.price),
+            )
+            .join(Product, Product.product_id == ProductAddonLink.addon_product_id)
+            .where(
+                ProductAddonLink.parent_product_id.in_(product_ids),
+                ProductAddonLink.default_quantity > 0,
+            )
+            .group_by(ProductAddonLink.parent_product_id)
+        )
+        return {parent_id: int(total) for parent_id, total in result.all()}
 
     async def get_addons_for(self, product_id: int) -> list[AddonResponse]:
         async with self.session() as session:
-            product = await session.get(
-                Product, product_id, options=[selectinload(Product.addons)]
-            )
-            if not product:
+            if not await session.get(Product, product_id):
                 raise ProductNotFoundError
-            type_adapter = TypeAdapter(list[AddonResponse])
-            return type_adapter.validate_python(product.addons)
+            result = await session.execute(
+                select(ProductAddonLink)
+                .where(ProductAddonLink.parent_product_id == product_id)
+                .order_by(ProductAddonLink.sort_order)
+                .options(selectinload(ProductAddonLink.addon))
+            )
+            links = result.scalars().all()
+            return [
+                AddonResponse(
+                    product_id=link.addon.product_id,
+                    name=link.addon.name,
+                    price=link.addon.price,
+                    price_mode=link.addon.price_mode,
+                    image_url=link.addon.image_url,
+                    default_quantity=link.default_quantity,
+                )
+                for link in links
+            ]
 
     async def get_by_name(self, product_name: str) -> ProductResponse:
         async with self.session() as session:

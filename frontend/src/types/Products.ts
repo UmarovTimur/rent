@@ -27,6 +27,8 @@ export interface Addon {
     price: number
     price_mode: PriceMode
     image_url?: string | null
+    // 0 = optional add-on; >0 = kit component pre-included with this quantity.
+    default_quantity: number
 }
 
 export interface Product {
@@ -34,6 +36,10 @@ export interface Product {
     name: string
     description: string
     price: number
+    // Catalog display price: `price` plus pre-included kit components' price.
+    // Equals `price` for a normal product. Use for catalog cards; use `price`
+    // (raw) for billing math (previewLineTotalWithAddons etc.).
+    display_price?: number
     image_url: string | null
     image_urls: string[]
     proteins?: number

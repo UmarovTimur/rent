@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from src.admin.models.basket_admin import BasketAdmin, BasketItemAdmin
 from src.admin.models.category_admin import CategoryAdmin
 from src.admin.models.order_admin import OrderAdmin, OrderItemAdmin
+from src.admin.models.product_addon_link_admin import ProductAddonLinkAdmin
 from src.admin.models.product_admin import ProductAdmin
 from src.admin.models.rental_admin import ProductRentalAdmin, ProductRentalSlotAdmin
 from src.admin.models.user_admin import UserAdmin
@@ -85,6 +86,7 @@ def create_application() -> CustomFastAPI:
     admin.add_view(OrderAdmin)
     admin.add_view(OrderItemAdmin)
     admin.add_view(ProductAdmin)
+    admin.add_view(ProductAddonLinkAdmin)
     admin.add_view(ProductRentalAdmin)
     admin.add_view(ProductRentalSlotAdmin)
     admin.add_view(CategoryAdmin)

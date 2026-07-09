@@ -112,7 +112,7 @@ export default function ImageSlider({ images, rounded, width, maxW, aspectRatio 
 
             {images.length > 1 && (
                 <Flex
-                    position="absolute" bottom="10px" left="0" right="0"
+                    position="absolute" top="12px" left="0" right="0"
                     justify="center" gap="5px" zIndex="2"
                     style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.65))' }}
                 >

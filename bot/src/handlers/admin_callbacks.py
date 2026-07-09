@@ -71,11 +71,17 @@ def _filter_keyboard() -> InlineKeyboardMarkup:
 
 def _order_keyboard(order_id: int, status: str) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
-    if status in _ACTIVE_STATUSES:
+    if status == "created":
+        # Only a brand-new order can be approved.
         builder.button(text="✅ Одобрить", callback_data=f"order:approve:{order_id}")
         builder.button(text="⏸ Пауза",    callback_data=f"order:pause:{order_id}")
         builder.button(text="🔒 Закрыть", callback_data=f"order:close:{order_id}")
         builder.adjust(3)
+    elif status in {"in_progress", "taken"}:
+        # Already approved / in work — no re-approval.
+        builder.button(text="⏸ Пауза",    callback_data=f"order:pause:{order_id}")
+        builder.button(text="🔒 Закрыть", callback_data=f"order:close:{order_id}")
+        builder.adjust(2)
     elif status == "paused":
         builder.button(text="▶️ Возобновить", callback_data=f"order:approve:{order_id}")
         builder.button(text="🔒 Закрыть",     callback_data=f"order:close:{order_id}")
@@ -186,6 +192,19 @@ async def handle_order_action(callback: CallbackQuery) -> None:
     new_status = _ACTION_STATUS[action]
 
     async with aiohttp.ClientSession(timeout=REQUEST_TIMEOUT) as session:
+        # Guard against double-approval (fast double-tap / two admins): only a
+        # "created" or "paused" order can be approved/resumed.
+        if action == "approve":
+            async with session.get(f"{get_order_url}/{order_id}") as resp:
+                if resp.status == HTTPStatus.OK:
+                    current = await resp.json()
+                    if current.get("status") not in {"created", "paused"}:
+                        await callback.answer("Заказ уже одобрен", show_alert=True)
+                        await callback.message.edit_reply_markup(
+                            reply_markup=_order_keyboard(order_id, current.get("status", ""))
+                        )
+                        return
+
         async with session.patch(
             f"{change_status_url}/{order_id}",
             params={"status": new_status},

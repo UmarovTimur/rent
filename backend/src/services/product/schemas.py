@@ -28,6 +28,8 @@ class AddonResponse(BaseModel):
     price: int
     price_mode: str
     image_url: str | None = None
+    # 0 = optional add-on; >0 = kit component pre-included with this quantity.
+    default_quantity: int = 0
 
     class Config:
         from_attributes = True
@@ -38,6 +40,11 @@ class ProductResponse(BaseModel):
     name: str
     description: str
     price: int
+    # Catalog display price: `price` plus the price of any pre-included kit
+    # components (default_quantity > 0 links). Equals `price` for a normal
+    # product with only optional add-ons. Use this for catalog listings;
+    # use `price` (the raw parent price) for basket/order billing.
+    display_price: int = 0
     image_url: str | None
     image_urls: list[str] = []
     is_addon: bool = False

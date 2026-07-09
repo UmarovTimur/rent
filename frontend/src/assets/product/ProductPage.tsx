@@ -8,7 +8,7 @@ import {
     Center,
     Mark,
 } from '@chakra-ui/react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { IoClose } from 'react-icons/io5'
 import { FiCheck, FiMinus, FiPlus } from 'react-icons/fi'
 import { Addon, Product } from '@/types/Products'
@@ -173,6 +173,26 @@ export default function ProductPage({ product }: ProductPageProps) {
         }
     }, [selectedProduct.product_id])
 
+    // Pre-select kit components (default_quantity > 0) once per product page open.
+    // Optional add-ons (default_quantity 0) stay unchecked. The availability effects
+    // below then clamp/drop these exactly like a manually selected add-on.
+    const seededProductIdRef = useRef<number | null>(null)
+    useEffect(() => {
+        if (addons.length === 0) return
+        if (seededProductIdRef.current === selectedProduct.product_id) return
+        seededProductIdRef.current = selectedProduct.product_id
+
+        const defaults = addons.filter((a) => a.default_quantity > 0)
+        if (defaults.length === 0) return
+        setAddonQty((prev) => {
+            const next = { ...prev }
+            for (const a of defaults) {
+                if (next[a.product_id] === undefined) next[a.product_id] = a.default_quantity
+            }
+            return next
+        })
+    }, [addons, selectedProduct.product_id])
+
     // Per-add-on availability for the chosen window (same calendar as products).
     useEffect(() => {
         if (!datesConfirmed || !rentalStartIso || !rentalEndIso || addons.length === 0) {
@@ -322,20 +342,25 @@ export default function ProductPage({ product }: ProductPageProps) {
                             return all.length > 0 ? all : ['shava.png']
                         })()}
                         rounded={{ base: '32px', sm: '42px' }}
-                        width={{ base: '62%', sm: '54%', md: '56%', lg: '46%' }}
-                        maxW={{ base: '260px', md: '400px' }}
+                        width={{ base: '74%', sm: '62%', md: '60%', lg: '50%' }}
+                        maxW={{ base: '310px', md: '440px' }}
                         alt={product.name}
                     />
+                    {/* Title overlaps the bottom of the image to save vertical space;
+                        pagination dots live at the top of the slider so they don't clash. */}
                     <Heading
-                        size={{ base: '4xl', md: '5xl' }}
+                        size={{ base: '3xl', md: '4xl' }}
                         fontWeight="800"
-                        color="text"
+                        color="white"
                         textAlign="center"
-                        mt={{ base: '16px', md: '16px' }}
+                        mt={{ base: '-28px', md: '-30px' }}
                         pos="relative"
+                        zIndex="2"
+                        pointerEvents="none"
                         w="full"
                         px={{ base: '36px', md: '0' }}
                         whiteSpace="pre-line"
+                        textShadow="0 2px 4px rgba(0,0,0,0.9), 0 4px 14px rgba(0,0,0,0.85), 0 0 28px rgba(0,0,0,0.6)"
                     >
                         {product.name}
                     </Heading>
