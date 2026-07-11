@@ -42,6 +42,9 @@ type TripDatesContextType = {
     validationError: string | null
     rentalStartIso: string | null
     rentalEndIso: string | null
+    // True once the user has actually changed any date/time field. Consumers use
+    // this to avoid persisting the untouched local default over the server.
+    tripDatesTouched: boolean
 }
 
 const TripDatesContext = createContext<TripDatesContextType | undefined>(undefined)
@@ -75,12 +78,12 @@ export const TripDatesProvider = ({
     const [endTimeConfirmed, setEndTimeConfirmed] = useState(false)
 
     // Trip dates persist on the basket (server-side), independent of items.
-    const [loaded, setLoaded] = useState(false)
+    const [touched, setTouched] = useState(false)
     const userInteractedRef = useRef(false)
-    const lastSavedKeyRef = useRef<string | null>(null)
 
     const markInteracted = () => {
         userInteractedRef.current = true
+        setTouched(true)
     }
 
     // Load persisted trip window once — unless the user already picked dates
@@ -103,14 +106,10 @@ export const TripDatesProvider = ({
                     setStartTimeConfirmed(true)
                     setEndDateConfirmed(true)
                     setEndTimeConfirmed(true)
-                    lastSavedKeyRef.current = `${basket!.rental_start}|${basket!.rental_end}`
                 }
             })
             .catch(() => {
                 /* keep local defaults */
-            })
-            .finally(() => {
-                if (!cancelled) setLoaded(true)
             })
 
         return () => {
@@ -220,6 +219,7 @@ export const TripDatesProvider = ({
             validationError,
             rentalStartIso,
             rentalEndIso,
+            tripDatesTouched: touched,
         }
     }, [
         startDate,
@@ -230,41 +230,11 @@ export const TripDatesProvider = ({
         endDateConfirmed,
         startTimeConfirmed,
         endTimeConfirmed,
+        touched,
     ])
 
-    // Persist the trip window to the basket (debounced). Fires on any valid
-    // range the user has actually touched — not only when all four fields are
-    // "confirmed" — so picking dates while leaving the default times still
-    // saves. Gated by `loaded` + `userInteracted` so we never overwrite the
-    // server with the untouched local default before reading it.
-    const { rentalStartIso, rentalEndIso } = value
-    useEffect(() => {
-        if (
-            !loaded ||
-            !userInteractedRef.current ||
-            !rentalStartIso ||
-            !rentalEndIso
-        ) {
-            return
-        }
-
-        const key = `${rentalStartIso}|${rentalEndIso}`
-        if (key === lastSavedKeyRef.current) return
-
-        const timeout = window.setTimeout(() => {
-            lastSavedKeyRef.current = key
-            BasketService.setBasketDates(
-                userId,
-                rentalStartIso,
-                rentalEndIso
-            ).catch(() => {
-                // Allow a retry on the next change.
-                lastSavedKeyRef.current = null
-            })
-        }, 600)
-
-        return () => window.clearTimeout(timeout)
-    }, [loaded, rentalStartIso, rentalEndIso, userId])
+    // Server persistence + item migration on a date change is owned by
+    // BasketContext, which calls the atomic set-dates-and-migrate endpoint.
 
     return (
         <TripDatesContext.Provider value={value}>

@@ -29,6 +29,7 @@ python-multipart = "^0.0.20"
 sqladmin = "^0.20.1"
 celery = "^5.5.3"
 aiohttp = "^3.11.0"
+itsdangerous = "^2.2.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.0"

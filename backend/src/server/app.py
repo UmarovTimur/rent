@@ -4,6 +4,8 @@ from typing import Optional
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
+from src.admin.auth import AdminAuth
+from src.admin.models.admin_user_admin import AdminUserAdmin
 from src.admin.models.basket_admin import BasketAdmin, BasketItemAdmin
 from src.admin.models.category_admin import CategoryAdmin
 from src.admin.models.order_admin import OrderAdmin, OrderItemAdmin
@@ -12,9 +14,11 @@ from src.admin.models.product_admin import ProductAdmin
 from src.admin.models.rental_admin import ProductRentalAdmin, ProductRentalSlotAdmin
 from src.admin.models.user_admin import UserAdmin
 from starlette.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 from sqladmin import Admin
 
 from src.container import DependencyContainer, container
+from src.services.admin_auth import ensure_bootstrap_admin
 from src.server.handle_erros import patch_exception_handlers
 from src.server.routers.v1.routers import api_v1_router
 
@@ -81,7 +85,31 @@ def create_application() -> CustomFastAPI:
         allow_headers=["*"],
     )
 
-    admin = Admin(server, engine=container.database().engine)
+    admin_settings = container.admin_settings()
+    # Shared admin session cookie: read by both the /api calendar endpoints and,
+    # via the same secret, the SQLAdmin panel's own session middleware.
+    server.add_middleware(
+        SessionMiddleware,
+        secret_key=admin_settings.session_secret,
+        https_only=admin_settings.session_https_only,
+        same_site="lax",
+    )
+
+    @server.on_event("startup")
+    async def _bootstrap_admin() -> None:
+        if not admin_settings.bootstrap_username or not admin_settings.bootstrap_password:
+            return
+        async with container.database().get_session() as session:
+            await ensure_bootstrap_admin(
+                session, admin_settings.bootstrap_username, admin_settings.bootstrap_password
+            )
+
+    admin = Admin(
+        server,
+        engine=container.database().engine,
+        authentication_backend=AdminAuth(secret_key=admin_settings.session_secret),
+    )
+    admin.add_view(AdminUserAdmin)
     admin.add_view(UserAdmin)
     admin.add_view(OrderAdmin)
     admin.add_view(OrderItemAdmin)

@@ -36,7 +36,25 @@ DB_PASSWORD=strong-password
 REDIS_HOST=redis
 REDIS_PORT=6379
 SERVER_CORS_ORIGINS=https://app.example.com
+ADMIN_SESSION_SECRET=long-random-string
+ADMIN_SESSION_HTTPS_ONLY=true
+ADMIN_BOOTSTRAP_USERNAME=admin
+ADMIN_BOOTSTRAP_PASSWORD=strong-admin-password
+INTERNAL_API_TOKEN=long-random-string
 ```
+
+`INTERNAL_API_TOKEN` is a shared secret authorising server-to-server calls between
+the backend and the bot (user/order management endpoints and order notifications).
+Set it to a long random value; the same value must be present for both the backend
+and bot containers. The Mini App itself authenticates per-request with signed
+Telegram initData (the backend needs `BOT_TOKEN` to verify it).
+
+The admin panel (`/admin`) and the rental calendar (`/app/admin`) are gated by a
+username/password login sharing one session cookie. `ADMIN_SESSION_SECRET` signs
+that cookie (set a long random value; rotating it logs everyone out).
+`ADMIN_BOOTSTRAP_USERNAME`/`ADMIN_BOOTSTRAP_PASSWORD` seed the first admin only when
+the `admin_users` table is empty — add or change admins afterwards inside the panel.
+Keep `ADMIN_SESSION_HTTPS_ONLY=true` in production (served over TLS).
 
 Required for production compose interpolation:
 - `DB_NAME`

@@ -4,7 +4,7 @@ import { Basket } from '@/types/Basket'
 
 export const OrderService = {
     createOrder: async (
-        userId: number,
+        _userId: number,
         orderData: {
             basket_id: number
             payment_option: 'card' | 'cash'
@@ -17,7 +17,7 @@ export const OrderService = {
         }
     ): Promise<Basket> => {
         const response = await axios.post<Basket>(
-            `${API_BASE_URL}api/v1/order/?user_id=${userId}`,
+            `${API_BASE_URL}api/v1/order/`,
             orderData
         )
         return response.data

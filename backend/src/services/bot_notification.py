@@ -7,13 +7,15 @@ logger = logging.getLogger(__name__)
 
 _BOT_INTERNAL_URL = os.getenv("BOT_INTERNAL_URL", "http://bot:8001").rstrip("/")
 _TIMEOUT = aiohttp.ClientTimeout(total=5)
+_INTERNAL_TOKEN = os.getenv("INTERNAL_API_TOKEN", "")
+_INTERNAL_HEADERS = {"X-Internal-Token": _INTERNAL_TOKEN} if _INTERNAL_TOKEN else {}
 
 
 async def _post(path: str, payload: dict) -> None:
     url = f"{_BOT_INTERNAL_URL}{path}"
     try:
         async with aiohttp.ClientSession(timeout=_TIMEOUT) as session:
-            async with session.post(url, json=payload) as resp:
+            async with session.post(url, json=payload, headers=_INTERNAL_HEADERS) as resp:
                 if resp.status != 200:
                     body = await resp.text()
                     logger.warning("Bot notification %s returned status=%s body=%s", path, resp.status, body[:200])

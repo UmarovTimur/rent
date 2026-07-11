@@ -71,12 +71,14 @@ class OrderService(BaseService, OrderServiceI):
                     rental_end=rental_end,
                 )
 
-            total_price = await self._calculate_total_price(session, order_data.basket_id)
+            # Always price/attach the authenticated user's own basket — never a
+            # client-supplied basket_id (which could point at another user).
+            total_price = await self._calculate_total_price(session, basket.basket_id)
             new_order = Order(
                 user_id=user_id,
                 total_price=total_price,
                 order_date=datetime.now(tz=UTC),
-                **order_data.model_dump(),
+                **{**order_data.model_dump(), "basket_id": basket.basket_id},
             )
             session.add(new_order)
             await session.flush()
@@ -108,7 +110,7 @@ class OrderService(BaseService, OrderServiceI):
                 if parent is not None:
                     child.parent_order_item_id = parent.order_item_id
 
-        await self.basket_service.clear_basket(order_data.basket_id)
+        await self.basket_service.clear_basket(basket.basket_id, user_id)
         return order_id
 
     async def get_order(self, order_id: int) -> OrderResponse:

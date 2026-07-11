@@ -11,6 +11,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from src.config import (
     ADMIN_CHAT_ID,
+    INTERNAL_HEADERS,
     REQUEST_TIMEOUT,
     bot,
     create_user_url,
@@ -37,7 +38,9 @@ async def send_welcome(message: Message, state: FSMContext) -> None:
     try:
         async with aiohttp.ClientSession(timeout=REQUEST_TIMEOUT) as session:
             user_exists = False
-            async with session.get(get_user_by_id_url, params={"user_id": user_id}) as resp:
+            async with session.get(
+                get_user_by_id_url, params={"user_id": user_id}, headers=INTERNAL_HEADERS
+            ) as resp:
                 if resp.status == HTTPStatus.OK:
                     user_exists = True
                     user_payload = await resp.json()
@@ -79,7 +82,7 @@ async def send_welcome(message: Message, state: FSMContext) -> None:
                     "language_code": message.from_user.language_code,
                     "coins": 0,
                 }
-                async with session.post(create_user_url, json=user_data) as response:
+                async with session.post(create_user_url, json=user_data, headers=INTERNAL_HEADERS) as response:
                     if response.status not in {HTTPStatus.CREATED, HTTPStatus.OK}:
                         response_text = await response.text()
                         # In race conditions user can be created in parallel by another request.
@@ -135,7 +138,9 @@ async def handle_receipt_photo(message: Message, bot: Bot) -> None:
 
     try:
         async with aiohttp.ClientSession(timeout=REQUEST_TIMEOUT) as session:
-            async with session.get(get_all_orders_url, params={"user_id": user_id}) as resp:
+            async with session.get(
+                get_all_orders_url, params={"user_id": user_id}, headers=INTERNAL_HEADERS
+            ) as resp:
                 if resp.status != HTTPStatus.OK:
                     await message.answer(SERVICE_UNAVAILABLE_TEXT)
                     return

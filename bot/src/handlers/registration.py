@@ -20,7 +20,7 @@ from aiogram.types import (
     ReplyKeyboardRemove,
 )
 
-from src.config import REQUEST_TIMEOUT, update_user_url
+from src.config import INTERNAL_HEADERS, REQUEST_TIMEOUT, update_user_url
 
 router = Router(name="registration")
 logger = logging.getLogger(__name__)
@@ -81,7 +81,7 @@ async def _patch_user(user_id: int, payload: dict) -> bool:
     try:
         async with aiohttp.ClientSession(timeout=REQUEST_TIMEOUT) as session:
             async with session.patch(
-                update_user_url, params={"user_id": user_id}, json=payload
+                update_user_url, params={"user_id": user_id}, json=payload, headers=INTERNAL_HEADERS
             ) as resp:
                 if resp.status == HTTPStatus.OK:
                     return True

@@ -12,6 +12,7 @@ from src.services.rental.service import RentalService
 from src.services.user.service import UserService
 from src.settings.admin import AdminSettings
 from src.settings.database import DatabaseSettings
+from src.settings.internal import InternalSettings
 from src.settings.telegram import TelegramSettings
 
 if TYPE_CHECKING:
@@ -31,6 +32,7 @@ class DependencyContainer(containers.DeclarativeContainer):
     database_settings: Singleton["DatabaseSettings"] = Singleton(DatabaseSettings)
     telegram_settings: Singleton["TelegramSettings"] = Singleton(TelegramSettings)
     admin_settings: Singleton["AdminSettings"] = Singleton(AdminSettings)
+    internal_settings: Singleton["InternalSettings"] = Singleton(InternalSettings)
     async_engine: Singleton["AsyncEngine"] = Singleton(
         async_engine,
         database_settings=database_settings.provided,
@@ -42,7 +44,9 @@ class DependencyContainer(containers.DeclarativeContainer):
     category_service: Factory["CategoryServiceI"] = Factory(CategoryService, session=database_session)
     product_service: Factory["ProductServiceI"] = Factory(ProductService, session=database_session)
     rental_service: Factory["RentalServiceI"] = Factory(RentalService, session=database_session)
-    basket_service: Factory["BasketServiceI"] = Factory(BasketService, session=database_session)
+    basket_service: Factory["BasketServiceI"] = Factory(
+        BasketService, session=database_session, rental_service=rental_service
+    )
     order_service: Factory["OrderServiceI"] = Factory(
         OrderService, session=database_session, basket_service=basket_service, rental_service=rental_service
     )

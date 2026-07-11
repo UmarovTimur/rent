@@ -33,6 +33,15 @@ class RentalServiceI(Protocol):
     ) -> None: ...
 
     @abstractmethod
+    async def available_quantity_for_window(
+        self,
+        session: AsyncSession,
+        product_id: int,
+        rental_start: datetime,
+        rental_end: datetime,
+    ) -> int | None: ...
+
+    @abstractmethod
     def get_allowed_transitions(self, status: str) -> list[str]: ...
 
     @abstractmethod

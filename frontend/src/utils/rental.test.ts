@@ -130,8 +130,8 @@ describe('previewLineTotalWithAddons (mirrors backend total)', () => {
         // 140000×2 + Ночник 15000×2 (per_day) + Мангал 100000×1 (flat) = 410000
         expect(
             previewLineTotalWithAddons(140_000, 1, halfDays, [
-                { price: 15_000, price_mode: 'per_day' },
-                { price: 100_000, price_mode: 'flat' },
+                { price: 15_000, price_mode: 'per_day', quantity: 1 },
+                { price: 100_000, price_mode: 'flat', quantity: 1 },
             ])
         ).toBe(410_000)
     })
@@ -140,8 +140,8 @@ describe('previewLineTotalWithAddons (mirrors backend total)', () => {
         // qty 2: 140000×2×2 + 15000×2×2 + 100000×2 = 820000
         expect(
             previewLineTotalWithAddons(140_000, 2, halfDays, [
-                { price: 15_000, price_mode: 'per_day' },
-                { price: 100_000, price_mode: 'flat' },
+                { price: 15_000, price_mode: 'per_day', quantity: 2 },
+                { price: 100_000, price_mode: 'flat', quantity: 2 },
             ])
         ).toBe(820_000)
     })

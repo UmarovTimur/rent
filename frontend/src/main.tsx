@@ -2,6 +2,7 @@ import { Provider } from '@/components/ui/provider'
 import React, { Suspense, lazy } from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
+import '@/api/setupAxios'
 import '@fontsource-variable/montserrat/index.css'
 
 // Admin calendar is lazy-loaded so its code (FullCalendar, etc.) stays out of the main client bundle.

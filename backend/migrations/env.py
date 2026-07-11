@@ -33,6 +33,7 @@ from src.clients.database.models.product import *
 from src.clients.database.models.rental import *
 from src.clients.database.models.category import *
 from src.clients.database.models.user import *
+from src.clients.database.models.admin_user import *
 
 target_metadata = Base.metadata
 

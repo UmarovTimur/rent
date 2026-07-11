@@ -26,6 +26,12 @@ API_TOKEN = _get_bot_token()
 bot = Bot(API_TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=10)
 
+# Shared secret authorising the bot's server-to-server calls to the backend
+# (and the backend's notifications to the bot). Must match INTERNAL_API_TOKEN
+# on the backend.
+INTERNAL_API_TOKEN = getenv("INTERNAL_API_TOKEN", "")
+INTERNAL_HEADERS = {"X-Internal-Token": INTERNAL_API_TOKEN} if INTERNAL_API_TOKEN else {}
+
 ADMIN_CHAT_ID = int(getenv("ADMIN_CHAT_ID") or 0)
 PAYMENT_CARD_NUMBER = getenv("PAYMENT_CARD_NUMBER", "")
 DEPOSIT_AMOUNT = int(getenv("DEPOSIT_AMOUNT", 100000))

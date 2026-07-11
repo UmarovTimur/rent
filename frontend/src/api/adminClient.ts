@@ -1,21 +1,11 @@
 import axios from 'axios'
-import { retrieveRawInitData } from '@telegram-apps/sdk'
 import API_BASE_URL from '@/config'
 
+// Admin surfaces (rental calendar) authenticate with the shared admin session
+// cookie set by the login endpoint / SQLAdmin panel, so requests must send credentials.
 const adminClient = axios.create({
     baseURL: API_BASE_URL,
-})
-
-adminClient.interceptors.request.use((config) => {
-    try {
-        const initData = retrieveRawInitData()
-        if (initData) {
-            config.headers['X-Telegram-Init-Data'] = initData
-        }
-    } catch (error) {
-        console.error('Failed to retrieve Telegram initData:', error)
-    }
-    return config
+    withCredentials: true,
 })
 
 export default adminClient

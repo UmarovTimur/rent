@@ -23,7 +23,7 @@ const isBasketNotFoundError = (error: unknown): boolean => {
 
 export const BasketService = {
     async addItem(
-        userId: number,
+        _userId: number,
         productId: number,
         quantity: number = 1,
         rentalStart?: string,
@@ -31,7 +31,7 @@ export const BasketService = {
         addons: AddonSelection[] = []
     ): Promise<void> {
         await axios.post(
-            `${API_BASE_URL}api/v1/basket/add_item?user_id=${userId}`,
+            `${API_BASE_URL}api/v1/basket/add_item`,
             {
                 product_id: productId,
                 quantity,
@@ -42,21 +42,27 @@ export const BasketService = {
         )
     },
 
-    async setBasketDates(
-        userId: number,
+    // Sets the trip window and atomically migrates existing items into it on the
+    // server, returning the updated basket (replaces client-side reconciliation).
+    async setBasketDatesAndMigrate(
+        _userId: number,
         rentalStart: string,
         rentalEnd: string
-    ): Promise<void> {
-        await axios.put(`${API_BASE_URL}api/v1/basket/${userId}/dates`, {
-            rental_start: rentalStart,
-            rental_end: rentalEnd,
-        })
+    ): Promise<Basket> {
+        const response = await axios.put<Basket>(
+            `${API_BASE_URL}api/v1/basket/dates`,
+            {
+                rental_start: rentalStart,
+                rental_end: rentalEnd,
+            }
+        )
+        return response.data
     },
 
-    async getBasket(userId: number): Promise<Basket | null> {
+    async getBasket(_userId: number): Promise<Basket | null> {
         try {
             const response = await axios.get<Basket>(
-                `${API_BASE_URL}api/v1/basket/${userId}`
+                `${API_BASE_URL}api/v1/basket/`
             )
             return response.data
         } catch (error) {
@@ -79,8 +85,15 @@ export const BasketService = {
     },
 
     async removeItem(basketItemId: number): Promise<void> {
-        await axios.delete(
-            `${API_BASE_URL}api/v1/basket/remove_item/${basketItemId}`
-        )
+        try {
+            await axios.delete(
+                `${API_BASE_URL}api/v1/basket/remove_item/${basketItemId}`
+            )
+        } catch (error) {
+            // Idempotent: a 404 means the item is already gone (e.g. removed by a
+            // concurrent date migration) — treat that as success.
+            if (axios.isAxiosError(error) && error.response?.status === 404) return
+            throw error
+        }
     },
 }

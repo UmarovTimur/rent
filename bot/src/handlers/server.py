@@ -14,7 +14,21 @@ def _order_id_from(data: dict) -> int:
     return int(data["order_id"])
 
 
+def _authorized(request: web.Request) -> bool:
+    """Require the shared internal token when it is configured.
+
+    If INTERNAL_API_TOKEN is unset the check is skipped so an unconfigured deploy
+    keeps working (a warning is logged at startup); set it in production.
+    """
+    from src.config import INTERNAL_API_TOKEN
+    if not INTERNAL_API_TOKEN:
+        return True
+    return request.headers.get("X-Internal-Token") == INTERNAL_API_TOKEN
+
+
 async def _handle_new_order(request: web.Request) -> web.Response:
+    if not _authorized(request):
+        return web.Response(status=401, text="unauthorized")
     try:
         data = await request.json()
         order_id = _order_id_from(data)
@@ -27,6 +41,8 @@ async def _handle_new_order(request: web.Request) -> web.Response:
 
 
 async def _handle_client_order_created(request: web.Request) -> web.Response:
+    if not _authorized(request):
+        return web.Response(status=401, text="unauthorized")
     try:
         data = await request.json()
         order_id = _order_id_from(data)
@@ -38,6 +54,8 @@ async def _handle_client_order_created(request: web.Request) -> web.Response:
 
 
 async def _handle_pickup_reminder(request: web.Request) -> web.Response:
+    if not _authorized(request):
+        return web.Response(status=401, text="unauthorized")
     try:
         data = await request.json()
         order_id = _order_id_from(data)
@@ -49,6 +67,8 @@ async def _handle_pickup_reminder(request: web.Request) -> web.Response:
 
 
 async def _handle_return_reminder(request: web.Request) -> web.Response:
+    if not _authorized(request):
+        return web.Response(status=401, text="unauthorized")
     try:
         data = await request.json()
         order_id = _order_id_from(data)
@@ -60,10 +80,10 @@ async def _handle_return_reminder(request: web.Request) -> web.Response:
 
 
 async def _fetch_order(order_id: int) -> dict | None:
-    from src.config import REQUEST_TIMEOUT, get_order_url
+    from src.config import INTERNAL_HEADERS, REQUEST_TIMEOUT, get_order_url
     try:
         async with aiohttp.ClientSession(timeout=REQUEST_TIMEOUT) as session:
-            async with session.get(f"{get_order_url}/{order_id}") as resp:
+            async with session.get(f"{get_order_url}/{order_id}", headers=INTERNAL_HEADERS) as resp:
                 if resp.status != HTTPStatus.OK:
                     logger.warning("Could not fetch order %s: status=%s", order_id, resp.status)
                     return None

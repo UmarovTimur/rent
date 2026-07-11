@@ -1,10 +1,10 @@
 from http import HTTPStatus
-from fastapi import BackgroundTasks, Query
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response
 from starlette.responses import JSONResponse
 
 from src.container import container
+from src.server.dependencies import Caller, require_telegram_user, require_user_or_internal
 from src.services.bot_notification import notify_client_order_created, notify_new_order
 from src.services.order.interface import OrderServiceI
 from src.services.order.schemas import OrderCreate, OrderResponse, OrderStatus
@@ -20,9 +20,9 @@ async def get_order_service() -> OrderServiceI:
 
 @router.post("/", response_model=OrderResponse)
 async def create_order(
-    user_id: int,
     order_data: OrderCreate,
     background_tasks: BackgroundTasks,
+    user_id: int = Depends(require_telegram_user),
     order_service: OrderServiceI = Depends(get_order_service),
 ) -> JSONResponse:
     order_id = await order_service.create_order(user_id=user_id, order_data=order_data)
@@ -31,24 +31,43 @@ async def create_order(
     return JSONResponse(content={"message": create_message.format(entity=order_tag)}, status_code=HTTPStatus.CREATED)
 
 
+@router.get("/", response_model=list[OrderResponse])
+async def get_all(
+    user_id: int | None = Query(None),
+    caller: Caller = Depends(require_user_or_internal),
+    order_service: OrderServiceI = Depends(get_order_service),
+) -> list[OrderResponse]:
+    # Telegram users only ever see their own orders; the bot (internal) may query
+    # a specific user or all orders for admin views.
+    if caller.is_internal:
+        return await order_service.get_all(user_id)
+    return await order_service.get_all(caller.user_id)
+
+
 @router.get("/{order_id}", response_model=OrderResponse)
 async def get_order(
     order_id: int,
+    caller: Caller = Depends(require_user_or_internal),
     order_service: OrderServiceI = Depends(get_order_service),
 ) -> OrderResponse:
-    return await order_service.get_order(order_id)
+    order = await order_service.get_order(order_id)
+    caller.authorize_user(order.user_id)
+    return order
 
-@router.get("/", response_model=list[OrderResponse])
-async def get_all(
-        user_id: int | None = Query(None), order_service: OrderServiceI = Depends(get_order_service),
-) -> list[OrderResponse]:
-    return await order_service.get_all(user_id)
 
 @router.patch("/change_status/{order_id}")
 async def change_status(
-        order_id: int,
-        status: OrderStatus,
-        order_service: OrderServiceI = Depends(get_order_service),
+    order_id: int,
+    status: OrderStatus,
+    caller: Caller = Depends(require_user_or_internal),
+    order_service: OrderServiceI = Depends(get_order_service),
 ) -> Response:
+    # The bot (internal) may drive any transition; a Telegram user may only
+    # cancel their own order.
+    if not caller.is_internal:
+        order = await order_service.get_order(order_id)
+        caller.authorize_user(order.user_id)
+        if status != OrderStatus.CANCELED:
+            raise HTTPException(status_code=HTTPStatus.FORBIDDEN, detail="You may only cancel your own order")
     await order_service.change_status(order_id, status)
     return Response(status_code=HTTPStatus.NO_CONTENT)

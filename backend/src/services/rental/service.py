@@ -153,6 +153,30 @@ class RentalService(BaseService, RentalServiceI):
                     f"Not enough quantity for rental window {window.slot_start.isoformat()} - {window.slot_end.isoformat()}"
                 )
 
+    async def available_quantity_for_window(
+        self,
+        session: AsyncSession,
+        product_id: int,
+        rental_start: datetime,
+        rental_end: datetime,
+    ) -> int | None:
+        """Max quantity of a product bookable across the whole window.
+
+        Returns None when the product is not rentable (no availability cap
+        applies). Otherwise the minimum available quantity over every slot in the
+        window (0 if any slot is closed/full). Runs on the caller's session so it
+        can share a transaction with a basket migration.
+        """
+        rental = await self._get_product_rental(session, product_id, for_update=True, allow_missing=True)
+        if not rental or not rental.is_enabled:
+            return None
+
+        self._validate_period(rental_start, rental_end)
+        windows = await self._compute_windows(session, rental, rental_start, rental_end, rental.slot_duration_minutes)
+        if not windows:
+            return 0
+        return max(0, min(window.available_quantity for window in windows))
+
     def get_allowed_transitions(self, status: str) -> list[str]:
         return sorted(ALLOWED_TRANSITIONS.get(status, set()))
 

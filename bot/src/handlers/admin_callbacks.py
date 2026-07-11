@@ -10,6 +10,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from src.config import (
     ADMIN_CHAT_ID,
+    INTERNAL_HEADERS,
     REQUEST_TIMEOUT,
     admin_calendar_url,
     bot,
@@ -44,7 +45,9 @@ async def _is_admin(user_id: int) -> bool:
         return True
     try:
         async with aiohttp.ClientSession(timeout=REQUEST_TIMEOUT) as session:
-            async with session.get(get_user_by_id_url, params={"user_id": user_id}) as resp:
+            async with session.get(
+                get_user_by_id_url, params={"user_id": user_id}, headers=INTERNAL_HEADERS
+            ) as resp:
                 if resp.status == HTTPStatus.OK:
                     data = await resp.json()
                     return bool(data.get("is_admin"))
@@ -138,13 +141,13 @@ def _format_order(order: dict) -> str:
 async def send_order_to_admins(order_id: int) -> None:
     try:
         async with aiohttp.ClientSession(timeout=REQUEST_TIMEOUT) as session:
-            async with session.get(f"{get_order_url}/{order_id}") as resp:
+            async with session.get(f"{get_order_url}/{order_id}", headers=INTERNAL_HEADERS) as resp:
                 if resp.status != HTTPStatus.OK:
                     logger.warning("Could not fetch order %s for notification: %s", order_id, resp.status)
                     return
                 order = await resp.json()
 
-            async with session.get(get_admins_url) as resp:
+            async with session.get(get_admins_url, headers=INTERNAL_HEADERS) as resp:
                 if resp.status != HTTPStatus.OK:
                     logger.warning("Could not fetch admin list: %s", resp.status)
                     return
@@ -195,7 +198,7 @@ async def handle_order_action(callback: CallbackQuery) -> None:
         # Guard against double-approval (fast double-tap / two admins): only a
         # "created" or "paused" order can be approved/resumed.
         if action == "approve":
-            async with session.get(f"{get_order_url}/{order_id}") as resp:
+            async with session.get(f"{get_order_url}/{order_id}", headers=INTERNAL_HEADERS) as resp:
                 if resp.status == HTTPStatus.OK:
                     current = await resp.json()
                     if current.get("status") not in {"created", "paused"}:
@@ -208,12 +211,13 @@ async def handle_order_action(callback: CallbackQuery) -> None:
         async with session.patch(
             f"{change_status_url}/{order_id}",
             params={"status": new_status},
+            headers=INTERNAL_HEADERS,
         ) as resp:
             if resp.status not in {HTTPStatus.NO_CONTENT, HTTPStatus.OK}:
                 await callback.answer("Ошибка при смене статуса", show_alert=True)
                 return
 
-        async with session.get(f"{get_order_url}/{order_id}") as resp:
+        async with session.get(f"{get_order_url}/{order_id}", headers=INTERNAL_HEADERS) as resp:
             if resp.status != HTTPStatus.OK:
                 await callback.answer("Статус обновлён")
                 return
@@ -259,7 +263,7 @@ async def handle_filter(callback: CallbackQuery) -> None:
     status_filter = callback.data.split(":")[1]
 
     async with aiohttp.ClientSession(timeout=REQUEST_TIMEOUT) as session:
-        async with session.get(get_all_orders_url) as resp:
+        async with session.get(get_all_orders_url, headers=INTERNAL_HEADERS) as resp:
             if resp.status != HTTPStatus.OK:
                 await callback.message.edit_text("❌ Не удалось получить заказы.", reply_markup=_filter_keyboard())
                 return

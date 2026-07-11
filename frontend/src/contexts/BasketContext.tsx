@@ -6,10 +6,9 @@ import {
     useRef,
     useState,
 } from 'react'
-import { Basket, BasketItem, BasketItemAddon, AddonSelection } from '@/types/Basket'
+import { Basket, BasketItemAddon, AddonSelection } from '@/types/Basket'
 import { BasketService } from '@/api/BasketService'
 import { ProductService } from '@/api/ProductService'
-import { RentalService } from '@/api/RentalService'
 import { Product, Ingredient } from '@/types/Products'
 import { useTripDates } from '@/contexts/TripDatesContext'
 
@@ -60,39 +59,6 @@ const normalizeIso = (value?: string | null): string | null => {
     return parsed.toISOString()
 }
 
-const hasSameRentalWindow = (
-    item: BasketItem,
-    rentalStartIso: string,
-    rentalEndIso: string
-): boolean => {
-    return (
-        normalizeIso(item.rental_start) === rentalStartIso &&
-        normalizeIso(item.rental_end) === rentalEndIso
-    )
-}
-
-const getAvailableQuantityForRange = async (
-    productId: number,
-    rentalStartIso: string,
-    rentalEndIso: string
-): Promise<number> => {
-    const calendar = await RentalService.getProductCalendar(
-        productId,
-        rentalStartIso,
-        rentalEndIso
-    )
-
-    if (calendar.slots.length === 0) return 0
-
-    const minAvailable = Math.min(
-        ...calendar.slots.map((slot) =>
-            slot.is_available ? slot.available_quantity : 0
-        )
-    )
-
-    return Math.max(0, minAvailable)
-}
-
 export const BasketProvider = ({
     children,
     userId,
@@ -100,13 +66,13 @@ export const BasketProvider = ({
     children: React.ReactNode
     userId: number
 }) => {
-    const { hasValidRange, rentalStartIso, rentalEndIso } = useTripDates()
+    const { hasValidRange, rentalStartIso, rentalEndIso, tripDatesTouched } = useTripDates()
     const [basket, setBasket] = useState<Basket | null>(null)
     const [allProducts, setAllProducts] = useState<Product[]>([])
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
-    const autoSyncInProgressRef = useRef(false)
-    const lastAutoSyncKeyRef = useRef('')
+    const migrateInFlightRef = useRef(false)
+    const lastMigratedKeyRef = useRef('')
 
     useEffect(() => {
         const loadProducts = async () => {
@@ -228,185 +194,54 @@ export const BasketProvider = ({
         }
     }
 
+    // When the user changes the trip window, atomically set the dates and migrate
+    // existing items into the new window on the server (one request), then adopt
+    // the returned basket. Gated on `tripDatesTouched` so the untouched default
+    // never overwrites the server; skipped when the window already matches.
     useEffect(() => {
-        if (
-            !basket ||
-            !hasValidRange ||
-            !rentalStartIso ||
-            !rentalEndIso ||
-            autoSyncInProgressRef.current
-        ) {
+        if (!tripDatesTouched || !hasValidRange || !rentalStartIso || !rentalEndIso) {
             return
         }
 
-        const rentalItems = basket.items.filter(
-            (item) => item.rental_start && item.rental_end
-        )
-        const staleRentalItems = rentalItems.filter(
-            (item) => !hasSameRentalWindow(item, rentalStartIso, rentalEndIso)
-        )
-
-        if (staleRentalItems.length === 0) return
-
-        const syncKey = [
-            rentalStartIso,
-            rentalEndIso,
-            ...rentalItems.map(
-                (item) =>
-                    `${item.basket_item_id}:${item.product_id}:${item.quantity}:${item.rental_start || ''}:${item.rental_end || ''}`
-            ),
-        ].join('|')
-
-        if (lastAutoSyncKeyRef.current === syncKey) return
-        lastAutoSyncKeyRef.current = syncKey
-
-        let cancelled = false
-
-        const syncBasketForCurrentRentalRange = async () => {
-            autoSyncInProgressRef.current = true
-            setLoading(true)
-            setError('')
-
-            try {
-                // Group by product + its add-on set, so lines with different
-                // add-ons stay distinct and add-ons survive the window move.
-                const addonKey = (item: BasketItem) =>
-                    (item.addons ?? [])
-                        .map((a) => a.product_id)
-                        .sort((x, y) => x - y)
-                        .join(',')
-                const groups = new Map<
-                    string,
-                    { productId: number; items: BasketItem[] }
-                >()
-                for (const item of rentalItems) {
-                    const key = `${item.product_id}::${addonKey(item)}`
-                    const existing = groups.get(key)
-                    if (existing) {
-                        existing.items.push(item)
-                    } else {
-                        groups.set(key, {
-                            productId: item.product_id,
-                            items: [item],
-                        })
-                    }
-                }
-
-                for (const { productId, items } of groups.values()) {
-                    const staleItems = items.filter(
-                        (item) =>
-                            !hasSameRentalWindow(
-                                item,
-                                rentalStartIso,
-                                rentalEndIso
-                            )
-                    )
-                    if (staleItems.length === 0) continue
-
-                    // Preserve each add-on's own quantity when moving the line.
-                    const addonQty = new Map<number, number>()
-                    for (const it of staleItems) {
-                        for (const a of it.addons ?? []) {
-                            addonQty.set(a.product_id, (addonQty.get(a.product_id) ?? 0) + a.quantity)
-                        }
-                    }
-                    const addons: AddonSelection[] = [...addonQty].map(
-                        ([product_id, quantity]) => ({ product_id, quantity })
-                    )
-
-                    const currentWindowItems = items.filter((item) =>
-                        hasSameRentalWindow(item, rentalStartIso, rentalEndIso)
-                    )
-
-                    const totalQuantity = items.reduce(
-                        (sum, item) => sum + item.quantity,
-                        0
-                    )
-                    const currentWindowQuantity = currentWindowItems.reduce(
-                        (sum, item) => sum + item.quantity,
-                        0
-                    )
-
-                    const availableQuantity = await getAvailableQuantityForRange(
-                        productId,
-                        rentalStartIso,
-                        rentalEndIso
-                    )
-                    const targetQuantity = Math.min(
-                        totalQuantity,
-                        availableQuantity,
-                        99
-                    )
-
-                    const quantityToAdd = Math.max(
-                        0,
-                        targetQuantity - currentWindowQuantity
-                    )
-                    if (quantityToAdd > 0) {
-                        await BasketService.addItem(
-                            userId,
-                            productId,
-                            quantityToAdd,
-                            rentalStartIso,
-                            rentalEndIso,
-                            addons
-                        )
-                    }
-
-                    let excessCurrentQuantity = Math.max(
-                        0,
-                        currentWindowQuantity - targetQuantity
-                    )
-                    if (excessCurrentQuantity > 0) {
-                        const sortedCurrentItems = [...currentWindowItems].sort(
-                            (a, b) => b.basket_item_id - a.basket_item_id
-                        )
-
-                        for (const currentItem of sortedCurrentItems) {
-                            if (excessCurrentQuantity <= 0) break
-
-                            if (currentItem.quantity <= excessCurrentQuantity) {
-                                await BasketService.removeItem(
-                                    currentItem.basket_item_id
-                                )
-                                excessCurrentQuantity -= currentItem.quantity
-                                continue
-                            }
-
-                            await BasketService.changeQuantity(
-                                currentItem.basket_item_id,
-                                currentItem.quantity - excessCurrentQuantity
-                            )
-                            excessCurrentQuantity = 0
-                        }
-                    }
-
-                    for (const staleItem of staleItems) {
-                        await BasketService.removeItem(staleItem.basket_item_id)
-                    }
-                }
-
-                const updatedBasket = await BasketService.getBasket(userId)
-                if (!cancelled) {
-                    setBasket(updatedBasket)
-                }
-            } catch (err) {
-                if (!cancelled) {
-                    setError('Ошибка пересчета корзины при смене дат')
-                }
-                console.error('Ошибка пересчета корзины при смене дат:', err)
-            } finally {
-                autoSyncInProgressRef.current = false
-                setLoading(false)
-            }
+        const serverStartIso = normalizeIso(basket?.rental_start)
+        const serverEndIso = normalizeIso(basket?.rental_end)
+        if (serverStartIso === rentalStartIso && serverEndIso === rentalEndIso) {
+            return
         }
 
-        void syncBasketForCurrentRentalRange()
+        const key = `${rentalStartIso}|${rentalEndIso}`
+        if (lastMigratedKeyRef.current === key) return
+
+        let cancelled = false
+        const timeout = window.setTimeout(async () => {
+            if (migrateInFlightRef.current) return
+            migrateInFlightRef.current = true
+            lastMigratedKeyRef.current = key
+            setLoading(true)
+            setError('')
+            try {
+                const updated = await BasketService.setBasketDatesAndMigrate(
+                    userId,
+                    rentalStartIso,
+                    rentalEndIso
+                )
+                if (!cancelled) setBasket(updated)
+            } catch (err) {
+                // Allow a retry on the next change.
+                lastMigratedKeyRef.current = ''
+                if (!cancelled) setError('Ошибка пересчета корзины при смене дат')
+                console.error('Ошибка пересчета корзины при смене дат:', err)
+            } finally {
+                migrateInFlightRef.current = false
+                if (!cancelled) setLoading(false)
+            }
+        }, 500)
 
         return () => {
             cancelled = true
+            window.clearTimeout(timeout)
         }
-    }, [basket, hasValidRange, rentalStartIso, rentalEndIso, userId])
+    }, [basket, tripDatesTouched, hasValidRange, rentalStartIso, rentalEndIso, userId])
 
     useEffect(() => {
         void refreshBasket()

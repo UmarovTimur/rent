@@ -5,6 +5,7 @@ from starlette.responses import JSONResponse
 
 from src.clients.database.models.product import Product
 from src.container import container
+from src.server.dependencies import require_admin
 from src.services.product.interface import ProductServiceI
 from src.services.product.schemas import (
     AddonResponse,
@@ -23,7 +24,7 @@ async def get_product_service() -> ProductServiceI:
     return container.product_service()
 
 
-@router.post("/", response_model=ProductResponse)
+@router.post("/", response_model=ProductResponse, dependencies=[Depends(require_admin)])
 async def create(
     product: ProductCreate,
     file: UploadFile | None = File(None),
@@ -60,7 +61,7 @@ async def get_by_name(
     return await product_service.get_by_name(product_name)
 
 
-@router.patch("/{product_id}")
+@router.patch("/{product_id}", dependencies=[Depends(require_admin)])
 async def update(
     product_id: int,
     product_data: ProductUpdate,
@@ -75,7 +76,7 @@ async def update(
     return JSONResponse(content={"message": update_message.format(entity=product_tag)}, status_code=200)
 
 
-@router.delete("/{product_id}")
+@router.delete("/{product_id}", dependencies=[Depends(require_admin)])
 async def delete(
     product_id: int, product_service: ProductServiceI = Depends(get_product_service)
 ) -> JSONResponse:
