@@ -83,6 +83,61 @@ const DatePickerField = ({ value, onChange, min, confirmed }: DatePickerFieldPro
     )
 }
 
+type TimeFieldProps = {
+    value: string
+    onChange: (value: string) => void
+    min?: string
+    confirmed: boolean
+}
+
+// Native <input type="time"> renders 12h/24h based on the browser/OS locale, not
+// on device settings, and can't be reliably forced to 24h. So we overlay the
+// native input transparently (for its picker UX) and show the value ourselves —
+// the stored "HH:MM" is already 24h, so no am/pm can ever appear.
+const TimeField = ({ value, onChange, min, confirmed }: TimeFieldProps) => {
+    const openPicker = (e: React.MouseEvent<HTMLInputElement>) => {
+        const input = e.currentTarget
+        try {
+            if (typeof input.showPicker === 'function') {
+                input.showPicker()
+            }
+        } catch {
+            // best-effort — a native tap already opens the picker on mobile
+        }
+    }
+
+    return (
+        <Box position="relative" w={{ base: '140px' }}>
+            <Flex
+                bg={confirmed ? 'green.500/10' : 'red.500/10'}
+                borderWidth="1.5px"
+                borderColor={confirmed ? 'green.500/60' : 'red.500/50'}
+                transition="background 0.2s, border-color 0.2s"
+                rounded="full"
+                h="40px"
+                px="14px"
+                alignItems="center"
+            >
+                <Text fontSize="sm">{value || '--:--'}</Text>
+            </Flex>
+            <Input
+                type="time"
+                lang="en-GB"
+                aria-label="Время поездки"
+                step={60}
+                value={value}
+                min={min}
+                onChange={(e) => onChange(e.target.value)}
+                onClick={openPicker}
+                position="absolute"
+                inset="0"
+                opacity="0"
+                cursor="pointer"
+            />
+        </Box>
+    )
+}
+
 export default function Header({
     categories,
     activeCategory,
@@ -194,26 +249,12 @@ export default function Header({
                                         if (endDate < value) setEndDate(value)
                                     }}
                                 />
-                                <Input
-                                    type="time"
-                                    lang="en-GB"
-                                    inputMode="numeric"
-                                    step={60}
+                                <TimeField
                                     value={startTime}
-                                    onChange={(e) => {
-                                        setStartTime(e.target.value)
+                                    confirmed={startTimeConfirmed}
+                                    onChange={(value) => {
+                                        setStartTime(value)
                                         confirmStartTime()
-                                    }}
-                                    bg={startTimeConfirmed ? 'green.500/10' : 'red.500/10'}
-                                    borderWidth="1.5px"
-                                    borderColor={startTimeConfirmed ? 'green.500/60' : 'red.500/50'}
-                                    transition="background 0.2s, border-color 0.2s"
-                                    rounded="full"
-                                    w={{ base: '140px' }}
-                                    css={{
-                                        '&::-webkit-datetime-edit-ampm-field': {
-                                            display: 'none',
-                                        },
                                     }}
                                 />
                             </Flex>
@@ -227,27 +268,13 @@ export default function Header({
                                         confirmEndDate()
                                     }}
                                 />
-                                <Input
-                                    type="time"
-                                    lang="en-GB"
-                                    inputMode="numeric"
-                                    step={60}
+                                <TimeField
                                     value={endTime}
                                     min={startDate === endDate ? startTime : undefined}
-                                    onChange={(e) => {
-                                        setEndTime(e.target.value)
+                                    confirmed={endTimeConfirmed}
+                                    onChange={(value) => {
+                                        setEndTime(value)
                                         confirmEndTime()
-                                    }}
-                                    bg={endTimeConfirmed ? 'green.500/10' : 'red.500/10'}
-                                    borderWidth="1.5px"
-                                    borderColor={endTimeConfirmed ? 'green.500/60' : 'red.500/50'}
-                                    transition="background 0.2s, border-color 0.2s"
-                                    rounded="full"
-                                    w={{ base: '140px' }}
-                                    css={{
-                                        '&::-webkit-datetime-edit-ampm-field': {
-                                            display: 'none',
-                                        },
                                     }}
                                 />
                             </Flex>

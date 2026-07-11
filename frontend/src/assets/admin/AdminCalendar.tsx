@@ -28,6 +28,14 @@ const toEvent = (rental: RentalOrderSummary): EventInput => {
 
 const ALL_STATUSES = Object.keys(RENTAL_STATUS_MAP) as OrderStatus[]
 
+// Always render event times in 24-hour format (no am/pm). Without an explicit
+// format FullCalendar falls back to its en locale and shows am/pm.
+const EVENT_TIME_FORMAT = {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+} as const
+
 export default function AdminCalendar() {
     const isDesktop = useIsDesktop()
     const calendarRef = useRef<FullCalendar>(null)
@@ -119,6 +127,7 @@ export default function AdminCalendar() {
                 headerToolbar={{ left: 'prev,next today', center: 'title', right: '' }}
                 height="auto"
                 locale="ru"
+                eventTimeFormat={EVENT_TIME_FORMAT}
                 firstDay={1}
                 eventClick={handleEventClick}
                 events={fetchEvents}
