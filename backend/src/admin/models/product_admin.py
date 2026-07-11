@@ -3,12 +3,15 @@ from typing import Any
 
 from markupsafe import Markup
 from sqladmin import ModelView
+from sqlalchemy import select
 from sqlalchemy import update as sa_update
+from sqlalchemy.orm import selectinload
 from starlette.requests import Request
-from wtforms import Field, MultipleFileField, TextAreaField
-from wtforms.validators import Optional
+from wtforms import BooleanField, Field, IntegerField, MultipleFileField, TextAreaField
+from wtforms.validators import NumberRange, Optional
 
 from src.clients.database.models.product import Product
+from src.clients.database.models.rental import ProductRental
 from src.container import container
 from src.services.schemas import Image
 from src.services.static import products_path
@@ -118,11 +121,16 @@ class ProductAdmin(ModelView, model=Product):
         Product.price,
         Product.price_mode,
         Product.is_addon,
+        Product.addon_products,
     ]
-    # Parent → child links (incl. per-kit default quantity) are managed in the
-    # dedicated "Kit / add-on links" section (ProductAddonLinkAdmin).
+    column_labels = {
+        Product.addon_products: "Аддоны / комплект (доп. продукты)",
+    }
+    # Attach/detach add-ons inline; per-link default quantity (kit components) is
+    # still tuned in the dedicated "Kit / add-on links" section (ProductAddonLinkAdmin).
     form_ajax_refs = {
         "category": {"fields": ["name"], "order_by": "name"},
+        "addon_products": {"fields": ["name"], "order_by": "name"},
     }
     # Multiline title/description so line breaks can be entered and are preserved.
     form_overrides = {
@@ -146,6 +154,21 @@ class ProductAdmin(ModelView, model=Product):
     }
     name_plural = "Products"
 
+    def form_edit_query(self, request: Request):
+        # Eager-load the 1:1 rental config (for the virtual rental_* fields) and the
+        # add-on links, so the form prefills without an async lazy-load.
+        return (
+            super()
+            .form_edit_query(request)
+            .options(selectinload(Product.rental_config), selectinload(Product.addon_products))
+        )
+
+    async def on_model_change(self, data: dict, model: Any, is_created: bool, request: Request) -> None:
+        # A product can't be its own add-on — drop any self-reference from the selection.
+        selected = data.get("addon_products")
+        if selected and getattr(model, "product_id", None) is not None:
+            data["addon_products"] = [p for p in selected if getattr(p, "product_id", None) != model.product_id]
+
     async def scaffold_form(self, rules=None):
         # sqladmin 0.20 dropped `form_extra_fields`; inject the photo fields by
         # subclassing the generated form (metaclass picks them up).
@@ -159,12 +182,58 @@ class ProductAdmin(ModelView, model=Product):
                 "Добавить фото (можно несколько)",
                 validators=[Optional()],
             )
+            # Rental config (1:1 ProductRental), edited inline — persisted in
+            # after_model_change. Prefilled from Product.rental_* properties.
+            rental_total_quantity = IntegerField(
+                "Количество (в аренде)", validators=[Optional(), NumberRange(min=0)]
+            )
+            rental_slot_duration_minutes = IntegerField(
+                "Длительность слота, мин", validators=[Optional(), NumberRange(min=1)]
+            )
+            rental_is_enabled = BooleanField("Аренда включена")
 
         return ProductForm
+
+    @staticmethod
+    async def _upsert_rental_config(model: Any, data: dict) -> None:
+        """Persist the inline rental fields into the 1:1 ProductRental row.
+
+        Updates the existing row, or creates one (ORM defaults cover the columns
+        not exposed on the form — see rental.py). Empty numeric fields fall back to
+        sensible defaults only when creating.
+        """
+        total_quantity = data.get("rental_total_quantity")
+        slot_minutes = data.get("rental_slot_duration_minutes")
+        is_enabled = bool(data.get("rental_is_enabled"))
+
+        db = container.database()
+        async with db.session() as session:
+            result = await session.execute(
+                select(ProductRental).where(ProductRental.product_id == model.product_id)
+            )
+            rental = result.scalar_one_or_none()
+            if rental is not None:
+                if total_quantity is not None:
+                    rental.total_quantity = total_quantity
+                if slot_minutes is not None:
+                    rental.slot_duration_minutes = slot_minutes
+                rental.is_enabled = is_enabled
+            else:
+                session.add(
+                    ProductRental(
+                        product_id=model.product_id,
+                        total_quantity=total_quantity if total_quantity is not None else 1,
+                        slot_duration_minutes=slot_minutes if slot_minutes is not None else 1440,
+                        is_enabled=is_enabled,
+                    )
+                )
+            await session.commit()
 
     async def after_model_change(
         self, data: dict, model: Any, is_created: bool, request: Request
     ) -> None:
+        await self._upsert_rental_config(model, data)
+
         # Photos checked for deletion.
         to_delete = set(data.get("existing_photos") or [])
 

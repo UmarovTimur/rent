@@ -60,6 +60,36 @@ class Product(Base):
         # ProductAdmin.after_model_change, so ignore direct assignment here.
         pass
 
+    # Virtual fields exposing the 1:1 ProductRental config on the Product admin form.
+    # Getters read the eager-loaded relationship via __dict__ (never trigger an async
+    # lazy-load); setters are no-ops — the real write is ProductAdmin.after_model_change.
+    @property
+    def rental_total_quantity(self) -> int:
+        rc = self.__dict__.get("rental_config")
+        return rc.total_quantity if rc else 1
+
+    @rental_total_quantity.setter
+    def rental_total_quantity(self, _value) -> None:
+        pass
+
+    @property
+    def rental_slot_duration_minutes(self) -> int:
+        rc = self.__dict__.get("rental_config")
+        return rc.slot_duration_minutes if rc else 1440
+
+    @rental_slot_duration_minutes.setter
+    def rental_slot_duration_minutes(self, _value) -> None:
+        pass
+
+    @property
+    def rental_is_enabled(self) -> bool:
+        rc = self.__dict__.get("rental_config")
+        return rc.is_enabled if rc else True
+
+    @rental_is_enabled.setter
+    def rental_is_enabled(self, _value) -> None:
+        pass
+
     category: Mapped["Category"] = relationship(back_populates="products")  # noqa: F821
 
     # This product's add-ons / kit components (read-only convenience view).
@@ -71,6 +101,19 @@ class Product(Base):
         secondaryjoin=product_id == product_addon_links.c.addon_product_id,
         order_by=product_addon_links.c.sort_order,
         viewonly=True,
+        overlaps="addon_products",
+    )
+    # Editable twin of `addons` used only by the Product admin form to attach/detach
+    # add-ons. SQLAlchemy syncs only the diff, so existing links keep their
+    # default_quantity/sort_order; new links get the table defaults (default_quantity=0,
+    # i.e. an optional add-on). Per-link default_quantity is still tuned in ProductAddonLink.
+    addon_products: Mapped[list["Product"]] = relationship(
+        "Product",
+        secondary=product_addon_links,
+        primaryjoin=product_id == product_addon_links.c.parent_product_id,
+        secondaryjoin=product_id == product_addon_links.c.addon_product_id,
+        order_by=product_addon_links.c.sort_order,
+        overlaps="addons,parent,addon",
     )
     basket_items: Mapped[list["BasketItem"]] = relationship(
         "BasketItem",
