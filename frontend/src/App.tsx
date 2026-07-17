@@ -4,6 +4,7 @@ import { system } from './theme.ts'
 import Header from '@/assets/header/Header.tsx'
 import MainList from '@/assets/mainList/MainList.tsx'
 import { useCategories } from '@/hooks/useCategories'
+import { useTelegramSafeArea } from '@/hooks/useTelegramSafeArea'
 import BasketButton from '@/assets/basket/BasketButton.tsx'
 import MotionDrawer from '@/assets/MotionDrawer.tsx'
 import { BasketDrawerContent } from '@/assets/basket/BasketDrawer.tsx'
@@ -41,32 +42,6 @@ declare global {
     }
 }
 
-// Telegram exposes the notch/overlay-button insets via JS; mirror them into CSS
-// variables (--tg-safe-area-inset-* / --tg-content-safe-area-inset-*) so the layout
-// can pad content out from under Telegram's buttons that sit on top of it.
-function syncTelegramSafeArea() {
-    const wa = window.Telegram?.WebApp
-    if (!wa) return () => {}
-    const root = document.documentElement
-    const apply = () => {
-        const set = (name: string, v?: number) =>
-            root.style.setProperty(name, `${Math.max(0, v ?? 0)}px`)
-        set('--tg-safe-area-inset-top', wa.safeAreaInset?.top)
-        set('--tg-safe-area-inset-bottom', wa.safeAreaInset?.bottom)
-        set('--tg-content-safe-area-inset-top', wa.contentSafeAreaInset?.top)
-        set('--tg-content-safe-area-inset-bottom', wa.contentSafeAreaInset?.bottom)
-    }
-    apply()
-    wa.onEvent?.('safeAreaChanged', apply)
-    wa.onEvent?.('contentSafeAreaChanged', apply)
-    wa.onEvent?.('viewportChanged', apply)
-    return () => {
-        wa.offEvent?.('safeAreaChanged', apply)
-        wa.offEvent?.('contentSafeAreaChanged', apply)
-        wa.offEvent?.('viewportChanged', apply)
-    }
-}
-
 export default function App() {
     const { categories, error } = useCategories()
     const [activeCategory, setActiveCategory] = useState('')
@@ -83,6 +58,8 @@ export default function App() {
         window.scrollTo(0, 0)
     }, [])
 
+    useTelegramSafeArea()
+
     useEffect(() => {
         if (window.Telegram?.WebApp) {
             window.Telegram.WebApp.ready()
@@ -92,22 +69,20 @@ export default function App() {
             window.Telegram.WebApp.expand?.()
             window.Telegram.WebApp.disableVerticalSwipes?.()
         }
-        const cleanupSafeArea = syncTelegramSafeArea()
 
         const telegramId = window?.Telegram?.WebApp?.initDataUnsafe?.user?.id
         if (telegramId) {
             setUserId(telegramId)
-            return cleanupSafeArea
+            return
         }
 
         const stored = AuthService.getStoredUserId()
         if (stored) {
             setUserId(stored)
-            return cleanupSafeArea
+            return
         }
 
         setNeedAuth(true)
-        return cleanupSafeArea
     }, [])
 
     if (error) {

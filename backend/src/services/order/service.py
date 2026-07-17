@@ -1,5 +1,5 @@
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -74,10 +74,13 @@ class OrderService(BaseService, OrderServiceI):
             # Always price/attach the authenticated user's own basket — never a
             # client-supplied basket_id (which could point at another user).
             total_price = await self._calculate_total_price(session, basket.basket_id)
+            order_date = datetime.now(tz=UTC)
+            payment_hold_minutes = BillingSettings().payment_hold_minutes
             new_order = Order(
                 user_id=user_id,
                 total_price=total_price,
-                order_date=datetime.now(tz=UTC),
+                order_date=order_date,
+                payment_deadline=order_date + timedelta(minutes=payment_hold_minutes),
                 **{**order_data.model_dump(), "basket_id": basket.basket_id},
             )
             session.add(new_order)
@@ -168,14 +171,10 @@ class OrderService(BaseService, OrderServiceI):
 
 
     async def change_status(self, order_id: int, status: OrderStatus) -> None:
-        async with self.session() as session:
-            order = await session.get(Order, order_id)
-            if order:
-                if order.status != status.value:
-                    order.status = status.value
-                    await session.commit()
-            else:
-                raise OrderNotFoundError
+        # Delegates to RentalService, the single choke point that validates the
+        # status-transition state machine and (for created -> in_progress/taken)
+        # re-checks availability before committing — see update_rental_status.
+        await self.rental_service.update_rental_status(order_id, status)
 
     @staticmethod
     async def _calculate_total_price(session, basket_id: int) -> int:

@@ -56,6 +56,39 @@ that cookie (set a long random value; rotating it logs everyone out).
 the `admin_users` table is empty — add or change admins afterwards inside the panel.
 Keep `ADMIN_SESSION_HTTPS_ONLY=true` in production (served over TLS).
 
+### Google Calendar sync (optional)
+
+Confirmed orders (`in_progress`/`taken`) can auto-sync as events on a shared
+Google Calendar, so several admins see current bookings in one place without
+opening the Mini App calendar. Disabled by default — leave both variables blank
+and nothing else is affected.
+
+Setup (one-time, done in Google's UI — not from this repo):
+1. In [Google Cloud Console](https://console.cloud.google.com/), create/select a
+   project → enable the **Google Calendar API**.
+2. Create a **Service Account** → generate a JSON key (downloads a `.json` file).
+3. In Google Calendar, create a **new, separate calendar** (e.g. "Аренда — брони")
+   — don't reuse anyone's personal calendar.
+4. Open that calendar's settings → **Share with specific people** → add the
+   service account's email (looks like `xxx@yyy.iam.gserviceaccount.com`, found
+   in the JSON key or the Cloud Console) with **"Make changes to events"**.
+5. Add each admin's Gmail the same way (**"See all event details"** is enough —
+   they don't need to edit) — or just send them the calendar's subscribe link.
+6. Copy the **Calendar ID** from that calendar's settings (bottom of the page,
+   looks like `xxxxx@group.calendar.google.com`).
+7. Set in `BACKEND_ENV_FILE`:
+   ```env
+   GOOGLE_CALENDAR_ID=xxxxx@group.calendar.google.com
+   GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON={"type":"service_account",...}
+   ```
+   (the full JSON key content, as one line — no other transformation needed).
+
+Behaviour: an event is created the moment an order is first confirmed, updated
+if paused (`[Пауза]` prefix) or completed (`[Завершён]` prefix, event kept as a
+record), and deleted if the order is cancelled. Unconfirmed 10-minute payment
+holds (`created`) are never synced. All calls are best-effort — a Google API
+error is logged and never blocks order/status changes.
+
 Required for production compose interpolation:
 - `DB_NAME`
 - `DB_USER`

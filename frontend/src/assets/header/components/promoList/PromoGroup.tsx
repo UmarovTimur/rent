@@ -1,43 +1,47 @@
 import { Flex } from '@chakra-ui/react'
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import PromoDialog from './PromoDialog'
+import { Promo, PromoService } from '@/api/PromoService'
 
-type PromoButton = {
-    image: string
-    isViewed: boolean
+const STORAGE_KEY = 'promoViewed'
+
+const loadViewed = (): Set<number> => {
+    try {
+        return new Set(JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'))
+    } catch {
+        return new Set()
+    }
 }
 
-const STORAGE_KEY = 'promoCardsViewed'
-
 export default function PromoGroup() {
-    const [cards, setCards] = useState<PromoButton[]>(() => {
-        // const saved = localStorage.getItem(STORAGE_KEY)
-        return [
-                  { image: './promo1.jpg', isViewed: false },
-                  { image: './promo2.jpg', isViewed: false },
-              ]
-    })
+    const [promos, setPromos] = useState<Promo[]>([])
+    const [viewed, setViewed] = useState<Set<number>>(loadViewed)
 
     useEffect(() => {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(cards))
-    }, [cards])
+        PromoService.getPromos()
+            .then(setPromos)
+            .catch((error) => console.error('Не удалось загрузить промо:', error))
+    }, [])
 
-    const toggleViewed = (index: number) => {
-        setCards((prevCards) =>
-            prevCards.map((card, i) =>
-                i === index ? { ...card, isViewed: true } : card
-            )
-        )
+    const markViewed = (promoId: number) => {
+        setViewed((prev) => {
+            if (prev.has(promoId)) return prev
+            const next = new Set(prev).add(promoId)
+            localStorage.setItem(STORAGE_KEY, JSON.stringify([...next]))
+            return next
+        })
     }
 
+    if (promos.length === 0) return null
+
     return (
-        <Flex gap="8px" overflowY="auto" scrollbar="hidden" w="100%" px="gap">
-            {cards.map((card, index) => (
+        <Flex gap="8px" overflowX="auto" scrollbar="hidden" w="100%" px="gap">
+            {promos.map((promo) => (
                 <PromoDialog
-                    key={index}
-                    image={card.image}
-                    isViewed={card.isViewed}
-                    onClick={() => toggleViewed(index)}
+                    key={promo.promo_id}
+                    frames={promo.frames}
+                    isViewed={viewed.has(promo.promo_id)}
+                    onView={() => markViewed(promo.promo_id)}
                 />
             ))}
         </Flex>

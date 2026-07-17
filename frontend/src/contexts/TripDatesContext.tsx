@@ -45,6 +45,10 @@ type TripDatesContextType = {
     // True once the user has actually changed any date/time field. Consumers use
     // this to avoid persisting the untouched local default over the server.
     tripDatesTouched: boolean
+    // Earliest allowed rental start — "now" in Tashkent. `minStartTime` is only set
+    // when the start date is today (so earlier times are allowed on future dates).
+    minStartDate: string
+    minStartTime: string | undefined
 }
 
 const TripDatesContext = createContext<TripDatesContextType | undefined>(undefined)
@@ -55,6 +59,12 @@ const wallToInputDate = (wall: Date) => {
     const mm = String(wall.getUTCMonth() + 1).padStart(2, '0')
     const dd = String(wall.getUTCDate()).padStart(2, '0')
     return `${yyyy}-${mm}-${dd}`
+}
+
+const wallToInputTime = (wall: Date) => {
+    const hh = String(wall.getUTCHours()).padStart(2, '0')
+    const mm = String(wall.getUTCMinutes()).padStart(2, '0')
+    return `${hh}:${mm}`
 }
 
 export const TripDatesProvider = ({
@@ -70,7 +80,9 @@ export const TripDatesProvider = ({
 
     const [startDate, setStartDate] = useState<string>(wallToInputDate(today))
     const [endDate, setEndDate] = useState<string>(wallToInputDate(tomorrow))
-    const [startTime, setStartTime] = useState<string>('12:00')
+    // Default start time is "now" (not noon) so the untouched default is never in
+    // the past; end keeps a simple noon default the next day.
+    const [startTime, setStartTime] = useState<string>(wallToInputTime(today))
     const [endTime, setEndTime] = useState<string>('12:00')
     const [startDateConfirmed, setStartDateConfirmed] = useState(false)
     const [endDateConfirmed, setEndDateConfirmed] = useState(false)
@@ -121,6 +133,12 @@ export const TripDatesProvider = ({
         let validationError: string | null = null
         let hasValidRange = Boolean(startDate && endDate && startTime && endTime)
 
+        // "Now" in Tashkent, truncated to the minute — the earliest allowed start.
+        const nowWall = getTashkentNowWall()
+        nowWall.setUTCMinutes(nowWall.getUTCMinutes(), 0, 0)
+        const minStartDate = wallToInputDate(nowWall)
+        const minStartTime = startDate === minStartDate ? wallToInputTime(nowWall) : undefined
+
         const start = hasValidRange
             ? parseTashkentDateTime(startDate, startTime)
             : null
@@ -131,6 +149,13 @@ export const TripDatesProvider = ({
         if (hasValidRange && (!start || !end)) {
             hasValidRange = false
             validationError = 'Проверьте корректность даты и времени аренды'
+        } else if (hasValidRange && start && start.getTime() < nowWall.getTime()) {
+            hasValidRange = false
+            // Don't nag about the untouched "now" default drifting into the past while
+            // the user is idle — only once they've actually engaged with the start.
+            if (startDateConfirmed || startTimeConfirmed) {
+                validationError = 'Начало аренды не может быть в прошлом'
+            }
         } else if (hasValidRange && start && end && end <= start) {
             hasValidRange = false
             // The first time a start-date change auto-bumps the end date to match it
@@ -220,6 +245,8 @@ export const TripDatesProvider = ({
             rentalStartIso,
             rentalEndIso,
             tripDatesTouched: touched,
+            minStartDate,
+            minStartTime,
         }
     }, [
         startDate,

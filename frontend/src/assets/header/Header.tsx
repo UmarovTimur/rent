@@ -19,7 +19,7 @@ import ProfilePage from '@/assets/profile/ProfilePage.tsx'
 import { useUserContext } from '@/contexts/UserContext'
 import { useTripDates } from '@/contexts/TripDatesContext'
 import { ADMIN_URL } from '@/config'
-import { formatInputDate } from '@/utils/rental'
+import { addDaysToInputDate, formatInputDate } from '@/utils/rental'
 
 type HeaderProps = {
     categories: string[]
@@ -69,7 +69,7 @@ const DatePickerField = ({ value, onChange, min, confirmed }: DatePickerFieldPro
             <Input
                 type="date"
                 lang="ru-RU"
-                aria-label="Дата поездки"
+                aria-label="Дата аренды"
                 value={value}
                 min={min}
                 onChange={(e) => onChange(e.target.value)}
@@ -123,7 +123,7 @@ const TimeField = ({ value, onChange, min, confirmed }: TimeFieldProps) => {
             <Input
                 type="time"
                 lang="en-GB"
-                aria-label="Время поездки"
+                aria-label="Время аренды"
                 step={60}
                 value={value}
                 min={min}
@@ -164,6 +164,8 @@ export default function Header({
         confirmStartTime,
         confirmEndTime,
         validationError,
+        minStartDate,
+        minStartTime,
     } = useTripDates()
 
     return (
@@ -235,22 +237,30 @@ export default function Header({
                         p="14px"
                     >
                         <Heading textAlign="center" size="md" mb="10px" color="text">
-                            Даты поездки
+                            Даты аренды
                         </Heading>
 
                         <Flex gap="10px" direction="column">
                             <Flex gap="10px" direction={{ base: 'row' }}>
                                 <DatePickerField
                                     value={startDate}
+                                    min={minStartDate}
                                     confirmed={startDateConfirmed}
                                     onChange={(value) => {
                                         setStartDate(value)
                                         confirmStartDate()
-                                        if (endDate < value) setEndDate(value)
+                                        // Keep the end at least a day after the start,
+                                        // and confirm it so a valid auto-filled end
+                                        // date isn't flagged red.
+                                        if (endDate <= value) {
+                                            setEndDate(addDaysToInputDate(value, 1))
+                                        }
+                                        confirmEndDate()
                                     }}
                                 />
                                 <TimeField
                                     value={startTime}
+                                    min={minStartTime}
                                     confirmed={startTimeConfirmed}
                                     onChange={(value) => {
                                         setStartTime(value)

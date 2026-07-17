@@ -5,6 +5,8 @@ from http import HTTPStatus
 import aiohttp
 from aiogram import F, Router
 from aiogram.filters import Command
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message, WebAppInfo
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
@@ -178,9 +180,74 @@ _ACTION_STATUS = {
     "reopen":  "in_progress",
 }
 
+# Actions where the admin is asked for a short comment explaining the change to
+# the client, before it's applied. "approve" only prompts when it means resuming
+# a paused order — the very first confirmation (from "created") keeps its own
+# automatic "your order is confirmed" message with no prompt.
+_ACTION_VERB = {
+    "pause": "приостановили",
+    "close": "закрыли",
+    "approve": "возобновили",
+}
+
+
+class OrderAction(StatesGroup):
+    waiting_comment = State()
+
+
+async def _apply_order_action(
+    order_id: int,
+    action: str,
+    *,
+    client_text: str | None,
+    comment: str | None,
+    reply_chat_id: int,
+    admin_message_id: int | None,
+) -> None:
+    """Patch the order's status, notify the client (if client_text is given,
+    with the admin's comment appended), and refresh the admin card in place.
+    """
+    new_status = _ACTION_STATUS[action]
+
+    async with aiohttp.ClientSession(timeout=REQUEST_TIMEOUT) as session:
+        async with session.patch(
+            f"{change_status_url}/{order_id}",
+            params={"status": new_status},
+            headers=INTERNAL_HEADERS,
+        ) as resp:
+            if resp.status not in {HTTPStatus.NO_CONTENT, HTTPStatus.OK}:
+                await bot.send_message(reply_chat_id, f"❌ Ошибка при смене статуса заказа #{order_id}.")
+                return
+
+        async with session.get(f"{get_order_url}/{order_id}", headers=INTERNAL_HEADERS) as resp:
+            if resp.status != HTTPStatus.OK:
+                await bot.send_message(reply_chat_id, "Статус обновлён.")
+                return
+            order = await resp.json()
+
+    if client_text:
+        text = client_text.format(order_id=order_id)
+        if comment:
+            text += f"\n\n💬 {comment}"
+        try:
+            await bot.send_message(order["user_id"], text)
+        except Exception:
+            logger.exception("Failed to notify client %s about order %s (%s)", order.get("user_id"), order_id, action)
+
+    if admin_message_id:
+        try:
+            await bot.edit_message_text(
+                _format_order(order),
+                chat_id=reply_chat_id,
+                message_id=admin_message_id,
+                reply_markup=_order_keyboard(order_id, new_status),
+            )
+        except Exception:
+            logger.exception("Failed to refresh admin card for order %s", order_id)
+
 
 @router.callback_query(F.data.startswith("order:"))
-async def handle_order_action(callback: CallbackQuery) -> None:
+async def handle_order_action(callback: CallbackQuery, state: FSMContext) -> None:
     parts = callback.data.split(":")
     if len(parts) != 3:
         await callback.answer("Неверный формат", show_alert=True)
@@ -192,50 +259,91 @@ async def handle_order_action(callback: CallbackQuery) -> None:
         return
 
     order_id = int(order_id_str)
-    new_status = _ACTION_STATUS[action]
 
     async with aiohttp.ClientSession(timeout=REQUEST_TIMEOUT) as session:
-        # Guard against double-approval (fast double-tap / two admins): only a
-        # "created" or "paused" order can be approved/resumed.
-        if action == "approve":
-            async with session.get(f"{get_order_url}/{order_id}", headers=INTERNAL_HEADERS) as resp:
-                if resp.status == HTTPStatus.OK:
-                    current = await resp.json()
-                    if current.get("status") not in {"created", "paused"}:
-                        await callback.answer("Заказ уже одобрен", show_alert=True)
-                        await callback.message.edit_reply_markup(
-                            reply_markup=_order_keyboard(order_id, current.get("status", ""))
-                        )
-                        return
-
-        async with session.patch(
-            f"{change_status_url}/{order_id}",
-            params={"status": new_status},
-            headers=INTERNAL_HEADERS,
-        ) as resp:
-            if resp.status not in {HTTPStatus.NO_CONTENT, HTTPStatus.OK}:
-                await callback.answer("Ошибка при смене статуса", show_alert=True)
-                return
-
         async with session.get(f"{get_order_url}/{order_id}", headers=INTERNAL_HEADERS) as resp:
-            if resp.status != HTTPStatus.OK:
-                await callback.answer("Статус обновлён")
-                return
-            order = await resp.json()
+            current_status = None
+            if resp.status == HTTPStatus.OK:
+                current = await resp.json()
+                current_status = current.get("status")
 
-    if action == "approve":
-        try:
-            await bot.send_message(
-                order["user_id"],
-                f"✅ <b>Ваш заказ #{order_id} подтверждён!</b> Ждём вас.",
+    # Guard against double-approval (fast double-tap / two admins): only a
+    # "created" or "paused" order can be approved/resumed.
+    if action == "approve" and current_status not in {"created", "paused"}:
+        await callback.answer("Заказ уже одобрен", show_alert=True)
+        if callback.message:
+            await callback.message.edit_reply_markup(
+                reply_markup=_order_keyboard(order_id, current_status or "")
             )
-        except Exception:
-            logger.exception("Failed to notify client %s about order %s approval", order.get("user_id"), order_id)
+        return
 
-    text = _format_order(order)
-    keyboard = _order_keyboard(order_id, new_status)
-    await callback.message.edit_text(text, reply_markup=keyboard)
+    if not callback.message:
+        return
+
+    is_resume = action == "approve" and current_status == "paused"
+    # Pause/close/resume are all "tell the client why" moments — prompt for a
+    # short comment before applying. The very first confirmation (approve from
+    # "created") keeps its existing automatic message and isn't prompted.
+    if action in {"pause", "close"} or is_resume:
+        await state.update_data(
+            pending_order_id=order_id,
+            pending_action=action,
+            pending_chat_id=callback.message.chat.id,
+            pending_message_id=callback.message.message_id,
+        )
+        await state.set_state(OrderAction.waiting_comment)
+        await callback.answer()
+        await bot.send_message(
+            callback.message.chat.id,
+            f"Напишите комментарий для клиента — почему заказ #{order_id} {_ACTION_VERB[action]} "
+            f"(когда открыть снова и т.п.). Или отправьте «-», чтобы отправить без комментария.",
+        )
+        return
+
+    await _apply_order_action(
+        order_id,
+        action,
+        client_text=(
+            "✅ <b>Ваш заказ #{order_id} подтверждён!</b> Ждём вас." if action == "approve" else None
+        ),
+        comment=None,
+        reply_chat_id=callback.message.chat.id,
+        admin_message_id=callback.message.message_id,
+    )
     await callback.answer()
+
+
+@router.message(OrderAction.waiting_comment, F.text)
+async def handle_order_action_comment(message: Message, state: FSMContext) -> None:
+    data = await state.get_data()
+    order_id = data.get("pending_order_id")
+    action = data.get("pending_action")
+    admin_chat_id = data.get("pending_chat_id")
+    admin_message_id = data.get("pending_message_id")
+    await state.clear()
+
+    if not order_id or not action:
+        return
+
+    comment = (message.text or "").strip()
+    if comment == "-":
+        comment = None
+
+    client_text = {
+        "pause": "⏸ <b>Ваш заказ #{order_id} приостановлен.</b>",
+        "close": "🔒 <b>Ваш заказ #{order_id} закрыт.</b>",
+        "approve": "▶️ <b>Ваш заказ #{order_id} возобновлён.</b>",
+    }.get(action)
+
+    await _apply_order_action(
+        order_id,
+        action,
+        client_text=client_text,
+        comment=comment,
+        reply_chat_id=admin_chat_id or message.chat.id,
+        admin_message_id=admin_message_id,
+    )
+    await message.answer(f"Готово: заказ #{order_id} обновлён.")
 
 
 # ─── Filter callback ─────────────────────────────────────────────────────────

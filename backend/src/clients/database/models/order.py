@@ -23,6 +23,15 @@ class Order(Base):
     discount: Mapped[float] = mapped_column(nullable=True)
     pickup_reminder_sent: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
     return_reminder_sent: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
+    # Payment hold: while status == "created" and this is in the future, the order
+    # blocks availability like a confirmed one. Once it passes, the order stops
+    # blocking (but isn't deleted/cancelled) unless a conflict forces cancellation —
+    # see RentalService._get_order_reservations and tasks/payment_holds.py.
+    payment_deadline: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Google Calendar event id once this order is synced (confirmed orders only —
+    # see services/calendar_sync.py). NULL if never synced or the event was deleted
+    # (e.g. on cancellation).
+    google_event_id: Mapped[str | None] = mapped_column(nullable=True)
 
     items: Mapped[list["OrderItem"]] = relationship(
         "OrderItem", back_populates="order", cascade="all, delete-orphan"

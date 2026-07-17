@@ -14,7 +14,21 @@ def _order_id_from(data: dict) -> int:
     return int(data["order_id"])
 
 
+def _authorized(request: web.Request) -> bool:
+    """Require the shared internal token — fails closed (rejects) if it isn't
+    configured, matching the backend's require_internal. INTERNAL_API_TOKEN is
+    documented as required in .env.example; an unset token means misconfiguration,
+    not "no auth needed".
+    """
+    from src.config import INTERNAL_API_TOKEN
+    if not INTERNAL_API_TOKEN:
+        return False
+    return request.headers.get("X-Internal-Token") == INTERNAL_API_TOKEN
+
+
 async def _handle_new_order(request: web.Request) -> web.Response:
+    if not _authorized(request):
+        return web.Response(status=401, text="unauthorized")
     try:
         data = await request.json()
         order_id = _order_id_from(data)
@@ -27,6 +41,8 @@ async def _handle_new_order(request: web.Request) -> web.Response:
 
 
 async def _handle_client_order_created(request: web.Request) -> web.Response:
+    if not _authorized(request):
+        return web.Response(status=401, text="unauthorized")
     try:
         data = await request.json()
         order_id = _order_id_from(data)
@@ -38,6 +54,8 @@ async def _handle_client_order_created(request: web.Request) -> web.Response:
 
 
 async def _handle_pickup_reminder(request: web.Request) -> web.Response:
+    if not _authorized(request):
+        return web.Response(status=401, text="unauthorized")
     try:
         data = await request.json()
         order_id = _order_id_from(data)
@@ -49,6 +67,8 @@ async def _handle_pickup_reminder(request: web.Request) -> web.Response:
 
 
 async def _handle_return_reminder(request: web.Request) -> web.Response:
+    if not _authorized(request):
+        return web.Response(status=401, text="unauthorized")
     try:
         data = await request.json()
         order_id = _order_id_from(data)
@@ -60,6 +80,8 @@ async def _handle_return_reminder(request: web.Request) -> web.Response:
 
 
 async def _handle_status_changed(request: web.Request) -> web.Response:
+    if not _authorized(request):
+        return web.Response(status=401, text="unauthorized")
     try:
         data = await request.json()
         order_id = _order_id_from(data)
@@ -70,11 +92,24 @@ async def _handle_status_changed(request: web.Request) -> web.Response:
     return web.Response(text="ok")
 
 
+async def _handle_hold_expired_cancelled(request: web.Request) -> web.Response:
+    if not _authorized(request):
+        return web.Response(status=401, text="unauthorized")
+    try:
+        data = await request.json()
+        order_id = _order_id_from(data)
+    except Exception:
+        return web.Response(status=400, text="invalid payload")
+
+    asyncio.create_task(_notify_hold_expired_cancelled(order_id))
+    return web.Response(text="ok")
+
+
 async def _fetch_order(order_id: int) -> dict | None:
-    from src.config import REQUEST_TIMEOUT, get_order_url
+    from src.config import INTERNAL_HEADERS, REQUEST_TIMEOUT, get_order_url
     try:
         async with aiohttp.ClientSession(timeout=REQUEST_TIMEOUT) as session:
-            async with session.get(f"{get_order_url}/{order_id}") as resp:
+            async with session.get(f"{get_order_url}/{order_id}", headers=INTERNAL_HEADERS) as resp:
                 if resp.status != HTTPStatus.OK:
                     logger.warning("Could not fetch order %s: status=%s", order_id, resp.status)
                     return None
@@ -178,6 +213,34 @@ async def _notify_status_changed(order_id: int) -> None:
         logger.exception("Failed to send status_changed notification to user %s", order.get("user_id"))
 
 
+async def _notify_hold_expired_cancelled(order_id: int) -> None:
+    from src.config import ADMIN_CHAT_ID, bot
+    order = await _fetch_order(order_id)
+    if not order:
+        return
+
+    client_text = (
+        f"❌ <b>Заказ #{order_id} отменён.</b>\n\n"
+        f"Мы не получили подтверждение оплаты вовремя, и эти даты забронировал другой клиент.\n"
+        f"Если снаряжение всё ещё нужно — оформите новый заказ на актуальные даты."
+    )
+    try:
+        await bot.send_message(order["user_id"], client_text)
+    except Exception:
+        logger.exception("Failed to notify user %s about hold-expired cancellation", order.get("user_id"))
+
+    if ADMIN_CHAT_ID:
+        admin_text = (
+            f"⏱ <b>Заказ #{order_id} автоматически отменён</b>\n"
+            f"👤 {order.get('first_name', '—')} | 📞 {order.get('phone', '—')}\n"
+            f"Причина: не оплачен за 10 минут, даты заняты другим заказом."
+        )
+        try:
+            await bot.send_message(ADMIN_CHAT_ID, admin_text)
+        except Exception:
+            logger.exception("Failed to notify admin chat about hold-expired cancellation for order %s", order_id)
+
+
 async def run_http_server():
     app = web.Application()
     app.router.add_get("/", lambda r: web.Response(text="Bot is running"))
@@ -186,6 +249,7 @@ async def run_http_server():
     app.router.add_post("/notify/pickup_reminder", _handle_pickup_reminder)
     app.router.add_post("/notify/return_reminder", _handle_return_reminder)
     app.router.add_post("/notify/status_changed", _handle_status_changed)
+    app.router.add_post("/notify/hold_expired_cancelled", _handle_hold_expired_cancelled)
 
     runner = web.AppRunner(app)
     await runner.setup()

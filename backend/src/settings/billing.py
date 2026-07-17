@@ -19,5 +19,6 @@ class BillingSettings(BaseSettings):
     rounding_step_minutes: int = 720  # 12h = 0.5-day step, rounded UP
     min_half_days: int = 2  # minimum charge = 1 day
     total_floor_step: int = 100  # floor final order/basket total to nearest 100 sum
+    payment_hold_minutes: int = 10  # time to pay after creating an order before the hold auto-releases
 
     model_config = SettingsConfigDict(env_prefix="billing_")

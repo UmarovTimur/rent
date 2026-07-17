@@ -104,6 +104,19 @@ export const tashkentDateTimeToUtcIso = (
     return value.toISOString()
 }
 
+// Shift a "YYYY-MM-DD" input-date string by N calendar days (UTC-safe).
+export const addDaysToInputDate = (date: string, days: number): string => {
+    const parts = parseDateParts(date)
+    if (!parts) return date
+    const [year, month, day] = parts
+    const shifted = new Date(Date.UTC(year, month - 1, day))
+    shifted.setUTCDate(shifted.getUTCDate() + days)
+    const yyyy = shifted.getUTCFullYear()
+    const mm = String(shifted.getUTCMonth() + 1).padStart(2, '0')
+    const dd = String(shifted.getUTCDate()).padStart(2, '0')
+    return `${yyyy}-${mm}-${dd}`
+}
+
 // Inverse of parseTashkentDateTime: a UTC instant → Tashkent wall-clock
 // date ("YYYY-MM-DD") + time ("HH:MM"), for restoring the trip-date inputs.
 export const utcIsoToTashkentParts = (

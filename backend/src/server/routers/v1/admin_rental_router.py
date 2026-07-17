@@ -6,6 +6,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Query, Response
 from src.container import container
 from src.server.dependencies import require_admin
 from src.services.bot_notification import notify_status_changed
+from src.services.calendar_sync import sync_order_calendar
 from src.services.order.schemas import OrderStatus
 from src.services.rental.interface import RentalServiceI
 from src.services.rental.schemas import RentalOrderDetail, RentalOrderSummary, RentalStatusUpdate
@@ -45,4 +46,5 @@ async def update_rental_status(
 ) -> Response:
     await rental_service.update_rental_status(order_id, status_update.status)
     background_tasks.add_task(notify_status_changed, order_id)
+    background_tasks.add_task(sync_order_calendar, order_id)
     return Response(status_code=HTTPStatus.NO_CONTENT)

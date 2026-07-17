@@ -1,5 +1,6 @@
 # Paths
 products_path = "media/products"
+promos_path = "media/promos"
 
 # Messages
 create_message = "{entity} created successfully"

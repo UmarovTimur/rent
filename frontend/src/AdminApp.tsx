@@ -19,27 +19,57 @@ import { ADMIN_URL } from '@/config'
 import { Toaster } from '@/components/ui/toaster'
 import { AdminAuthService } from '@/api/AdminAuthService'
 import AdminCalendar from '@/assets/admin/AdminCalendar'
+import { useTelegramSafeArea } from '@/hooks/useTelegramSafeArea'
 
 type AccessState = 'checking' | 'granted' | 'unauthenticated' | 'error'
 
 function AdminNavHeader({ onLogout }: { onLogout?: () => void }) {
+    // Sticky + padded past Telegram's safe-area insets so the native close/⋮
+    // buttons (which float over the WebView) never sit on top of these links —
+    // same treatment as the main app's Header.tsx. Buttons are a touch-friendly
+    // "md" size on mobile (were cramped "sm" everywhere) and drop to "sm" once
+    // there's room on wider screens.
     return (
-        <Flex gap="2" p="3" borderBottomWidth="1px" mb="4" wrap="wrap" align="center">
+        <Flex
+            position="sticky"
+            top="0"
+            zIndex="3"
+            bg="back"
+            gap="2"
+            px="3"
+            pb="3"
+            pt="calc(var(--tg-safe-area-inset-top, 0px) + var(--tg-content-safe-area-inset-top, 0px) + 12px)"
+            borderBottomWidth="1px"
+            wrap="wrap"
+            align="center"
+        >
             <Link href={ADMIN_URL}>
-                <Button variant="outline" size="sm" rounded="full">
+                <Button variant="outline" size={{ base: 'md', md: 'sm' }} rounded="full">
                     Админ
                 </Button>
             </Link>
-            <Button variant="solid" colorPalette="blue" size="sm" rounded="full" pointerEvents="none">
+            <Button
+                variant="solid"
+                colorPalette="blue"
+                size={{ base: 'md', md: 'sm' }}
+                rounded="full"
+                pointerEvents="none"
+            >
                 Календарь
             </Button>
             <Link href="/app/">
-                <Button variant="outline" size="sm" rounded="full">
+                <Button variant="outline" size={{ base: 'md', md: 'sm' }} rounded="full">
                     Приложение
                 </Button>
             </Link>
             {onLogout && (
-                <Button variant="ghost" size="sm" rounded="full" ml="auto" onClick={onLogout}>
+                <Button
+                    variant="ghost"
+                    size={{ base: 'md', md: 'sm' }}
+                    rounded="full"
+                    ml="auto"
+                    onClick={onLogout}
+                >
                     Выйти
                 </Button>
             )}
@@ -113,6 +143,15 @@ function LoginForm({ onSuccess }: { onSuccess: () => void }) {
 
 export default function AdminApp() {
     const [access, setAccess] = useState<AccessState>('checking')
+
+    useTelegramSafeArea()
+
+    useEffect(() => {
+        if (window.Telegram?.WebApp) {
+            window.Telegram.WebApp.ready()
+            window.Telegram.WebApp.expand?.()
+        }
+    }, [])
 
     const checkAccess = async () => {
         try {

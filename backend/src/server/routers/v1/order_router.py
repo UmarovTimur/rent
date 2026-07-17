@@ -6,6 +6,7 @@ from starlette.responses import JSONResponse
 from src.container import container
 from src.server.dependencies import Caller, require_telegram_user, require_user_or_internal
 from src.services.bot_notification import notify_client_order_created, notify_new_order
+from src.services.calendar_sync import sync_order_calendar
 from src.services.order.interface import OrderServiceI
 from src.services.order.schemas import OrderCreate, OrderResponse, OrderStatus
 from src.services.static import create_message
@@ -59,6 +60,7 @@ async def get_order(
 async def change_status(
     order_id: int,
     status: OrderStatus,
+    background_tasks: BackgroundTasks,
     caller: Caller = Depends(require_user_or_internal),
     order_service: OrderServiceI = Depends(get_order_service),
 ) -> Response:
@@ -70,4 +72,5 @@ async def change_status(
         if status != OrderStatus.CANCELED:
             raise HTTPException(status_code=HTTPStatus.FORBIDDEN, detail="You may only cancel your own order")
     await order_service.change_status(order_id, status)
+    background_tasks.add_task(sync_order_calendar, order_id)
     return Response(status_code=HTTPStatus.NO_CONTENT)

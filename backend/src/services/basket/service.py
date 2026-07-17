@@ -185,11 +185,23 @@ class BasketService(BaseService, BasketServiceI):
                 await session.flush()
 
                 for addon_product_id, addon_quantity in addon_quantities.items():
+                    # Each add-on has its own inventory (e.g. a specific sleeping-bag
+                    # model), independent of the parent's — cap/drop it by its own
+                    # availability in the new window too, not just carry the old
+                    # quantity over unchanged.
+                    addon_cap = await self.rental_service.available_quantity_for_window(
+                        session, addon_product_id, dates.rental_start, dates.rental_end
+                    )
+                    addon_limit = 99 if addon_cap is None else min(addon_cap, 99)
+                    addon_target = min(addon_quantity, addon_limit)
+                    if addon_target <= 0:
+                        continue
+
                     session.add(
                         BasketItem(
                             basket_id=basket.basket_id,
                             product_id=addon_product_id,
-                            quantity=addon_quantity,
+                            quantity=addon_target,
                             rental_start=dates.rental_start,
                             rental_end=dates.rental_end,
                             parent_basket_item_id=new_parent.basket_item_id,

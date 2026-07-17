@@ -11,6 +11,9 @@ type ToBasketProps = {
     quantity: number
     disabled?: boolean
     unavailable?: boolean
+    // True when there's real capacity, but this basket already holds all of it
+    // for these exact dates — distinct from "unavailable" (no capacity at all).
+    atCapacityInBasket?: boolean
     addons?: AddonSelection[]
 }
 
@@ -20,14 +23,22 @@ export default function ToBasketButton({
     quantity,
     disabled = false,
     unavailable = false,
+    atCapacityInBasket = false,
     addons = [],
 }: ToBasketProps) {
     const { onClose } = useDrawer()
     const { addToBasket, loading } = useBasketContext()
     const { hasValidRange, datesConfirmed, rentalStartIso, rentalEndIso } = useTripDates()
 
+    const needsDates = !hasValidRange || !datesConfirmed
+    // A zero total means nothing billable is selected — a 0-priced product needs at
+    // least one paid add-on. Block the add and prompt to pick options instead.
+    const requiresOptions = !needsDates && !unavailable && currentPrice === 0
+    const isDisabled = needsDates || disabled || loading || requiresOptions
+
     const handleClick = async () => {
         if (!hasValidRange || !datesConfirmed || !rentalStartIso || !rentalEndIso) return
+        if (currentPrice === 0) return
 
         const success = await addToBasket(
             productId,
@@ -39,9 +50,6 @@ export default function ToBasketButton({
 
         if (success) onClose()
     }
-
-    const needsDates = !hasValidRange || !datesConfirmed
-    const isDisabled = needsDates || disabled || loading
 
     return (
         <CloseButton
@@ -61,7 +69,11 @@ export default function ToBasketButton({
                 ? 'Укажите даты аренды'
                 : unavailable
                   ? 'Недоступно на эти даты'
-                  : `В корзину - ${formatPriceK(currentPrice)}`}
+                  : atCapacityInBasket
+                    ? 'Уже в корзине (максимум)'
+                    : requiresOptions
+                      ? 'Выберите опции'
+                      : `В корзину - ${formatPriceK(currentPrice)}`}
         </CloseButton>
     )
 }

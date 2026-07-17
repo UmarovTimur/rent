@@ -647,8 +647,22 @@ h1, h2, h3, h4 {
     max-width: 22ch;
   }
 
+  &__phone {
+    margin-top: 22px;
+
+    a {
+      font-weight: 800;
+      font-size: 1.25rem;
+      color: var(--color-accent);
+      text-decoration: none;
+      letter-spacing: 0.02em;
+
+      &:hover { text-decoration: underline; }
+    }
+  }
+
   &__address {
-    margin-top: 30px;
+    margin-top: 14px;
     font-weight: 600;
     color: #C9CFC4;
   }
@@ -669,6 +683,13 @@ h1, h2, h3, h4 {
 
   &__links { display: flex; gap: 18px; font-weight: 600; font-size: 0.9rem; }
   &__copy { font-size: 0.82rem; color: var(--color-ink-soft); }
+}
+
+// ---------- utilities ----------
+// Temporarily hides an element while keeping its markup (e.g. the bot-booking
+// CTA, disabled until the bot flow is ready).
+.is-hidden {
+  display: none !important;
 }
 
 // ---------- scroll reveal ----------

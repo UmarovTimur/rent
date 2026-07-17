@@ -6,3 +6,4 @@ localhost.pem
 .vscode
 media
 *.pyc
+celerybeat-schedule

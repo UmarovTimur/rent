@@ -24,7 +24,6 @@ import { ProductService } from '@/api/ProductService'
 import { formatPriceK } from '@/utils/price'
 import { productImageSrc } from '@/utils/media'
 import {
-    formatInputDate,
     formatRentalDaysRu,
     getBilledRentalDaysFromIso,
     previewLineTotalWithAddons,
@@ -49,16 +48,11 @@ export default function ProductPage({ product }: ProductPageProps) {
     const { onClose } = useDrawer()
     const { error, clearError, basketProducts } = useBasketContext()
     const {
-        startDate,
-        endDate,
-        startTime,
-        endTime,
         hasValidRange,
         datesConfirmed,
         rentalStartIso,
         rentalEndIso,
         getTripDurationDays,
-        eveningGraceExplanation,
     } = useTripDates()
 
     const reservedInBasketQuantity = useMemo(() => {
@@ -89,6 +83,33 @@ export default function ProductPage({ product }: ProductPageProps) {
         availableQuantity == null
             ? null
             : Math.max(0, availableQuantity - reservedInBasketQuantity)
+
+    // Same idea as reservedInBasketQuantity, but per add-on: how much of each
+    // add-on is already reserved under THIS product's basket line for these exact
+    // dates. Adding to basket merges quantities server-side, so the stepper's max
+    // must subtract this — otherwise picking "the full available amount" again
+    // would silently overshoot true capacity once merged.
+    const reservedAddonQuantities = useMemo(() => {
+        if (!rentalStartIso || !rentalEndIso) return {} as Record<number, number>
+
+        const result: Record<number, number> = {}
+        for (const item of basketProducts) {
+            if (item.product_id !== selectedProduct.product_id) continue
+
+            const sameStart =
+                item.rental_start != null &&
+                new Date(item.rental_start).toISOString() === rentalStartIso
+            const sameEnd =
+                item.rental_end != null &&
+                new Date(item.rental_end).toISOString() === rentalEndIso
+            if (!sameStart || !sameEnd) continue
+
+            for (const a of item.addons ?? []) {
+                result[a.product_id] = (result[a.product_id] ?? 0) + a.quantity
+            }
+        }
+        return result
+    }, [basketProducts, rentalStartIso, rentalEndIso, selectedProduct.product_id])
 
     useEffect(() => {
         if (error?.includes('Максимальное')) {
@@ -208,7 +229,9 @@ export default function ProductPage({ product }: ProductPageProps) {
                         rentalStartIso,
                         rentalEndIso
                     )
-                    // Max units bookable = smallest availability across the window.
+                    // Max units bookable = smallest availability across the window,
+                    // minus what this same basket line already reserves of this
+                    // add-on (adding merges server-side — see reservedAddonQuantities).
                     const max =
                         cal.slots.length > 0
                             ? Math.min(
@@ -217,7 +240,8 @@ export default function ProductPage({ product }: ProductPageProps) {
                                   )
                               )
                             : 0
-                    return [a.product_id, Math.max(0, max)] as const
+                    const reserved = reservedAddonQuantities[a.product_id] ?? 0
+                    return [a.product_id, Math.max(0, max - reserved)] as const
                 } catch {
                     return [a.product_id, 0] as const
                 }
@@ -228,7 +252,7 @@ export default function ProductPage({ product }: ProductPageProps) {
         return () => {
             cancelled = true
         }
-    }, [addons, datesConfirmed, rentalStartIso, rentalEndIso])
+    }, [addons, datesConfirmed, rentalStartIso, rentalEndIso, reservedAddonQuantities])
 
     // Drop / clamp selected add-ons when availability for the window changes.
     useEffect(() => {
@@ -252,20 +276,33 @@ export default function ProductPage({ product }: ProductPageProps) {
         remainingAvailableQuantity == null
             ? 99
             : Math.max(1, Math.min(99, remainingAvailableQuantity))
+    // "Unavailable" means truly no capacity for anyone (including this basket).
+    // If capacity exists but this basket already holds all of it for these exact
+    // dates, that's not unavailability — it's "you already have the max", a
+    // different (calmer) message so re-opening an already-added item doesn't
+    // look like a broken/unbookable product.
     const isUnavailableForDates =
-        hasValidRange && !availabilityLoading && remainingAvailableQuantity === 0
+        hasValidRange && !availabilityLoading && availableQuantity === 0
+    const atBasketCapacity =
+        hasValidRange &&
+        !availabilityLoading &&
+        !isUnavailableForDates &&
+        remainingAvailableQuantity === 0 &&
+        reservedInBasketQuantity > 0
     // When the item can't be added and the button shows the reason why (dates not
     // chosen / unavailable on these dates), hide the +/- stepper so the button takes
     // the full width.
     const needsDates = !hasValidRange || !datesConfirmed
-    const canAddToBasket = !needsDates && !isUnavailableForDates
+    const canAddToBasket = !needsDates && !isUnavailableForDates && !atBasketCapacity
+    // A zero-priced product is an "options container": it's meant to be priced by
+    // its add-ons. Hide its own quantity stepper (quantity stays 1) — only the
+    // add-ons get quantity controls — and let the add button span full width.
+    const isAddonContainer = selectedProduct.price === 0
     const tripDurationDays =
         hasValidRange && rentalStartIso && rentalEndIso
             ? getBilledRentalDaysFromIso(rentalStartIso, rentalEndIso) ?? 1
             : getTripDurationDays() ?? 1
     const tripHalfDays = Math.round(tripDurationDays * 2)
-    const formattedStartDate = formatInputDate(startDate)
-    const formattedEndDate = formatInputDate(endDate)
 
     const isAddonDisabled = (addonId: number) =>
         datesConfirmed && addonMax[addonId] === 0
@@ -395,36 +432,17 @@ export default function ProductPage({ product }: ProductPageProps) {
                             flex="1">
                             {product.description}
                         </Text>
-                        <Box
+                        <Flex
                             alignSelf="stretch"
-                            bg="back"
-                            rounded="24px"
-                            p="18px"
-                            flex="1"
-                            minW={{ lg: '320px' }}
+                            px="18px"
+                            gap="10px"
+                            align={{ base: 'flex-start', sm: 'center' }}
                         >
-                            <Flex
-                                gap="10px"
-                                align={{ base: 'flex-start', sm: 'center' }}
-                            >
-                                <Text fontWeight="600" mb="4px">
-                                    Период аренды:
-                                </Text>
-                                <Mark fontWeight="bold" color="accent">
-                                    {formatRentalDaysRu(getTripDurationDays())}
-                                </Mark>
-                            </Flex>
-                            <Text opacity={0.8} fontSize="sm">
-                                {hasValidRange && datesConfirmed
-                                    ? `${formattedStartDate} ${startTime} — ${formattedEndDate} ${endTime}`
-                                    : 'Выберите даты и время аренды на главном экране'}
-                            </Text>
-                            {hasValidRange && datesConfirmed && eveningGraceExplanation && (
-                                <Text opacity={0.7} fontSize="xs" mt="4px" color="green.500">
-                                    {eveningGraceExplanation}
-                                </Text>
-                            )}
-                        </Box>
+                            <Text fontWeight="600">Период аренды:</Text>
+                            <Mark fontWeight="bold" color="accent">
+                                {formatRentalDaysRu(getTripDurationDays() ?? 1)}
+                            </Mark>
+                        </Flex>
                         {hasValidRange && datesConfirmed && (
                             <Text
                                 w="full"
@@ -560,7 +578,7 @@ export default function ProductPage({ product }: ProductPageProps) {
                     mx="auto"
                     gap="gap"
                 >
-                    {canAddToBasket && (
+                    {canAddToBasket && !isAddonContainer && (
                         <CustomNumberInput
                             value={tempQuantity.toString()}
                             max={maxSelectableQuantity}
@@ -574,8 +592,9 @@ export default function ProductPage({ product }: ProductPageProps) {
                         currentPrice={currentPrice}
                         productId={selectedProduct.product_id}
                         quantity={tempQuantity}
-                        disabled={availabilityLoading || isUnavailableForDates}
+                        disabled={availabilityLoading || isUnavailableForDates || atBasketCapacity}
                         unavailable={isUnavailableForDates}
+                        atCapacityInBasket={atBasketCapacity}
                         addons={selectedAddons.map((a) => ({
                             product_id: a.product_id,
                             quantity: a.quantity,

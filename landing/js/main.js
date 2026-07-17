@@ -1,14 +1,21 @@
 // Реальные контакты — поменяйте здесь один раз, подставится во все кнопки и футер.
 const CONTACTS = {
-  telegram: 'https://t.me/REPLACE_USERNAME', // менеджер в Telegram
+  telegram: 'https://t.me/withBen', // менеджер в Telegram (написать)
+  channel: 'https://t.me/renTent_uz', // Telegram-канал
   bot: 'https://t.me/camping_rent_uz_bot', // бот для онлайн-бронирования
-  phone: '+998 90 000 00 00', // номер для звонка
-  instagram: 'https://instagram.com/REPLACE_USERNAME',
+  phone: '+998 90 965 70 35', // номер для звонка
+  instagram: 'https://www.instagram.com/rentent.uz/',
 };
 
 function applyContacts() {
   document.querySelectorAll('[data-contact="telegram"]').forEach((el) => {
     el.href = CONTACTS.telegram;
+    el.target = '_blank';
+    el.rel = 'noopener';
+  });
+
+  document.querySelectorAll('[data-contact="channel"]').forEach((el) => {
+    el.href = CONTACTS.channel;
     el.target = '_blank';
     el.rel = 'noopener';
   });

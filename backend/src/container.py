@@ -8,6 +8,7 @@ from src.services.basket.service import BasketService
 from src.services.category.service import CategoryService
 from src.services.order.service import OrderService
 from src.services.product.service import ProductService
+from src.services.promo.service import PromoService
 from src.services.rental.service import RentalService
 from src.services.user.service import UserService
 from src.settings.admin import AdminSettings
@@ -24,6 +25,7 @@ if TYPE_CHECKING:
     from src.services.category.interface import CategoryServiceI
     from src.services.order.interface import OrderServiceI
     from src.services.product.interface import ProductServiceI
+    from src.services.promo.interface import PromoServiceI
     from src.services.rental.interface import RentalServiceI
     from src.services.user.interface import UserServiceI
 
@@ -43,6 +45,7 @@ class DependencyContainer(containers.DeclarativeContainer):
     user_service: Factory["UserServiceI"] = Factory(UserService, session=database_session)
     category_service: Factory["CategoryServiceI"] = Factory(CategoryService, session=database_session)
     product_service: Factory["ProductServiceI"] = Factory(ProductService, session=database_session)
+    promo_service: Factory["PromoServiceI"] = Factory(PromoService, session=database_session)
     rental_service: Factory["RentalServiceI"] = Factory(RentalService, session=database_session)
     basket_service: Factory["BasketServiceI"] = Factory(
         BasketService, session=database_session, rental_service=rental_service

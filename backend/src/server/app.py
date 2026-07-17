@@ -11,8 +11,10 @@ from src.admin.models.category_admin import CategoryAdmin
 from src.admin.models.order_admin import OrderAdmin, OrderItemAdmin
 from src.admin.models.product_addon_link_admin import ProductAddonLinkAdmin
 from src.admin.models.product_admin import ProductAdmin
+from src.admin.models.promo_admin import PromoAdmin
 from src.admin.models.rental_admin import ProductRentalAdmin, ProductRentalSlotAdmin
 from src.admin.models.user_admin import UserAdmin
+from src.admin.rental_calendar_link import RentalCalendarLink
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from sqladmin import Admin
@@ -109,6 +111,7 @@ def create_application() -> CustomFastAPI:
         engine=container.database().engine,
         authentication_backend=AdminAuth(secret_key=admin_settings.session_secret),
     )
+    admin.add_base_view(RentalCalendarLink)
     admin.add_view(AdminUserAdmin)
     admin.add_view(UserAdmin)
     admin.add_view(OrderAdmin)
@@ -118,6 +121,7 @@ def create_application() -> CustomFastAPI:
     admin.add_view(ProductRentalAdmin)
     admin.add_view(ProductRentalSlotAdmin)
     admin.add_view(CategoryAdmin)
+    admin.add_view(PromoAdmin)
     admin.add_view(BasketAdmin)
     admin.add_view(BasketItemAdmin)
 

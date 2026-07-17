@@ -4,7 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -30,15 +30,34 @@ from src.services.rental.schemas import (
 )
 
 ALLOWED_TRANSITIONS: dict[str, set[str]] = {
-    OrderStatus.CREATED.value: {OrderStatus.IN_PROGRESS.value, OrderStatus.CANCELED.value},
+    # Matches the admin bot's keyboard (bot/src/handlers/admin_callbacks.py
+    # _order_keyboard): every status offers Pause and Close (except completed,
+    # which offers reopen; canceled is terminal), so those must all be reachable
+    # from every non-terminal status. Availability is only re-checked for
+    # transitions INTO in_progress/taken (see update_rental_status) — pausing or
+    # closing only releases a slot, never claims one, so no re-check is needed there.
+    OrderStatus.CREATED.value: {
+        OrderStatus.IN_PROGRESS.value,
+        OrderStatus.PAUSED.value,
+        OrderStatus.COMPLETED.value,
+        OrderStatus.CANCELED.value,
+    },
     OrderStatus.IN_PROGRESS.value: {
         OrderStatus.TAKEN.value,
         OrderStatus.PAUSED.value,
         OrderStatus.CANCELED.value,
         OrderStatus.COMPLETED.value,
     },
-    OrderStatus.TAKEN.value: {OrderStatus.COMPLETED.value, OrderStatus.CANCELED.value},
-    OrderStatus.PAUSED.value: {OrderStatus.IN_PROGRESS.value, OrderStatus.CANCELED.value},
+    OrderStatus.TAKEN.value: {
+        OrderStatus.PAUSED.value,
+        OrderStatus.COMPLETED.value,
+        OrderStatus.CANCELED.value,
+    },
+    OrderStatus.PAUSED.value: {
+        OrderStatus.IN_PROGRESS.value,
+        OrderStatus.COMPLETED.value,
+        OrderStatus.CANCELED.value,
+    },
     OrderStatus.COMPLETED.value: {OrderStatus.IN_PROGRESS.value},
     OrderStatus.CANCELED.value: set(),
 }
@@ -126,6 +145,7 @@ class RentalService(BaseService, RentalServiceI):
         quantity: int,
         rental_start: datetime | None,
         rental_end: datetime | None,
+        exclude_order_id: int | None = None,
     ) -> None:
         if quantity <= 0:
             raise RentalUnavailableError("Quantity must be positive")
@@ -144,7 +164,9 @@ class RentalService(BaseService, RentalServiceI):
             raise InvalidRentalPeriodError("Rental dates are required for rentable product")
         self._validate_period(rental_start, rental_end)
 
-        windows = await self._compute_windows(session, rental, rental_start, rental_end, rental.slot_duration_minutes)
+        windows = await self._compute_windows(
+            session, rental, rental_start, rental_end, rental.slot_duration_minutes, exclude_order_id=exclude_order_id
+        )
         for window in windows:
             if window.is_closed:
                 raise RentalUnavailableError("Rental slot is closed")
@@ -236,8 +258,11 @@ class RentalService(BaseService, RentalServiceI):
             )
 
     async def update_rental_status(self, order_id: int, new_status: OrderStatus) -> None:
-        async with self.session() as session:
-            order = await session.get(Order, order_id)
+        async with self.session() as session, session.begin():
+            result = await session.execute(
+                select(Order).where(Order.order_id == order_id).options(selectinload(Order.items))
+            )
+            order = result.unique().scalar_one_or_none()
             if not order:
                 raise OrderNotFoundError
 
@@ -247,8 +272,41 @@ class RentalService(BaseService, RentalServiceI):
                     f"Cannot transition order from '{order.status}' to '{new_status.value}'"
                 )
 
+            # Entering a slot-holding status (in_progress/taken) is the moment a
+            # reservation becomes real/indefinite — re-check availability so a slot
+            # claimed by someone else in the meantime can't be double-booked. This
+            # covers every path in, not just the first confirmation: created (hold
+            # expired or not), paused -> in_progress (resume), and completed ->
+            # in_progress (reopen) all come from statuses that don't hold the slot,
+            # so the slot may have been taken by someone else while this order sat
+            # there. in_progress -> taken re-checks too — harmless (already held).
+            entering_confirmed_status = new_status.value in {OrderStatus.IN_PROGRESS.value, OrderStatus.TAKEN.value}
+            if entering_confirmed_status:
+                demands: dict[tuple[int, datetime, datetime], int] = {}
+                for item in order.items:
+                    if item.rental_start is None:
+                        await self.ensure_product_available(
+                            session=session,
+                            product_id=item.product_id,
+                            quantity=item.quantity,
+                            rental_start=None,
+                            rental_end=None,
+                        )
+                        continue
+                    key = (item.product_id, item.rental_start, item.rental_end)
+                    demands[key] = demands.get(key, 0) + item.quantity
+
+                for (product_id, rental_start, rental_end), quantity in demands.items():
+                    await self.ensure_product_available(
+                        session=session,
+                        product_id=product_id,
+                        quantity=quantity,
+                        rental_start=rental_start,
+                        rental_end=rental_end,
+                        exclude_order_id=order.order_id,
+                    )
+
             order.status = new_status.value
-            await session.commit()
 
     async def _get_users_by_id(self, session: AsyncSession, user_ids: set[int]) -> dict[int, User]:
         if not user_ids:
@@ -293,10 +351,18 @@ class RentalService(BaseService, RentalServiceI):
         date_from: datetime,
         date_to: datetime,
         slot_minutes: int,
+        exclude_order_id: int | None = None,
     ) -> list[_WindowAvailability]:
-        """Single source of truth for slot availability, shared by the calendar view and the booking check."""
+        """Single source of truth for slot availability, shared by the calendar view and the booking check.
+
+        `exclude_order_id` leaves one order's own reservation out of the count —
+        used when re-checking availability for that same order's own confirmation,
+        so its own (already-counted) hold doesn't make the slot look full to itself.
+        """
         manual_slots = await self._get_manual_slots(session, rental.rental_id, date_from, date_to)
-        order_intervals = await self._get_order_reservations(session, rental.product_id, date_from, date_to)
+        order_intervals = await self._get_order_reservations(
+            session, rental.product_id, date_from, date_to, exclude_order_id=exclude_order_id
+        )
 
         windows = []
         for slot_start, slot_end in self._iter_slots(date_from, date_to, slot_minutes):
@@ -356,6 +422,7 @@ class RentalService(BaseService, RentalServiceI):
         product_id: int,
         date_from: datetime,
         date_to: datetime,
+        exclude_order_id: int | None = None,
     ) -> list[_ReservationInterval]:
         stmt = (
             select(
@@ -370,14 +437,22 @@ class RentalService(BaseService, RentalServiceI):
                 OrderItem.rental_end.is_not(None),
                 OrderItem.rental_start < date_to,
                 OrderItem.rental_end > date_from,
-                Order.status.not_in([
-                    OrderStatus.CANCELED.value,
-                    OrderStatus.PAUSED.value,
-                    OrderStatus.COMPLETED.value,
-                ]),
+                # A confirmed order (in_progress/taken) always blocks. A brand-new
+                # "created" order blocks only until its payment hold expires — after
+                # that it stops reserving (but isn't cancelled) unless a conflict
+                # forces it, see tasks/payment_holds.py.
+                or_(
+                    Order.status.in_([OrderStatus.IN_PROGRESS.value, OrderStatus.TAKEN.value]),
+                    and_(
+                        Order.status == OrderStatus.CREATED.value,
+                        Order.payment_deadline > func.now(),
+                    ),
+                ),
             )
-            .group_by(OrderItem.rental_start, OrderItem.rental_end)
         )
+        if exclude_order_id is not None:
+            stmt = stmt.where(Order.order_id != exclude_order_id)
+        stmt = stmt.group_by(OrderItem.rental_start, OrderItem.rental_end)
         result = await session.execute(stmt)
         return [
             _ReservationInterval(start=row.rental_start, end=row.rental_end, quantity=int(row.reserved_quantity or 0))

@@ -31,7 +31,6 @@ services:
     volumes:
       - media:/media
       - ./backend:/backend   # live code — изменения применяются без пересборки
-    command: sh /backend/entrypoint.sh
     networks:
       - my_network
     depends_on:

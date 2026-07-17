@@ -7,7 +7,18 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from src.celery_app import celery_app
+# Every mapped model must be imported before the first query in this process —
+# SQLAlchemy configures all mappers together and Order's relationships reference
+# sibling models (Basket, Product, ...) by string name (see migrations/env.py,
+# which imports the same set for the same reason).
+from src.clients.database.models.admin_user import AdminUser  # noqa: F401
+from src.clients.database.models.basket import Basket, BasketItem  # noqa: F401
+from src.clients.database.models.category import Category  # noqa: F401
 from src.clients.database.models.order import Order, OrderItem
+from src.clients.database.models.product import Product  # noqa: F401
+from src.clients.database.models.promo import Promo  # noqa: F401
+from src.clients.database.models.rental import ProductRental, ProductRentalSlot  # noqa: F401
+from src.clients.database.models.user import User  # noqa: F401
 from src.services.bot_notification import notify_pickup_reminder, notify_return_reminder
 
 logger = logging.getLogger(__name__)
@@ -31,7 +42,7 @@ async def _send_pickup_reminders() -> None:
         window_start = now + _WINDOW_BEFORE
         window_end = now + _WINDOW_AFTER
 
-        async with AsyncSession(engine) as session:
+        async with AsyncSession(engine, expire_on_commit=False) as session:
             min_start_subq = (
                 select(OrderItem.order_id, func.min(OrderItem.rental_start).label("min_start"))
                 .where(OrderItem.rental_start.isnot(None))
@@ -69,7 +80,7 @@ async def _send_return_reminders() -> None:
         window_start = now + _WINDOW_BEFORE
         window_end = now + _WINDOW_AFTER
 
-        async with AsyncSession(engine) as session:
+        async with AsyncSession(engine, expire_on_commit=False) as session:
             max_end_subq = (
                 select(OrderItem.order_id, func.max(OrderItem.rental_end).label("max_end"))
                 .where(OrderItem.rental_end.isnot(None))

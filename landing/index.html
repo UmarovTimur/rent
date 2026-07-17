@@ -4,6 +4,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <link rel="apple-touch-icon" href="images/apple-touch-icon.png" />
+  <meta name="theme-color" content="#151613" />
+
   <title>Аренда туристического снаряжения в Ташкенте — палатки, рюкзаки, спальники</title>
   <meta name="description"
     content="Аренда палаток, спальников, рюкзаков и кемпинговой мебели в Ташкенте. Оригинальные бренды, актуальные цены, бронь в Telegram. Для походов в Чимган, Бельдерсай и Чарвак." />
@@ -25,7 +29,7 @@
     href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800;900&family=JetBrains+Mono:wght@500;600&display=swap"
     rel="stylesheet" />
 
-  <link rel="stylesheet" href="css/style.css?v=7" />
+  <link rel="stylesheet" href="css/style.css?v=8" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/viewerjs@1.11.6/dist/viewer.min.css" />
 
   <script type="application/ld+json">
@@ -40,12 +44,12 @@
     "addressLocality": "Ташкент",
     "addressCountry": "UZ"
   },
-  "telephone": "+998900000000",
+  "telephone": "+998909657035",
   "priceRange": "15000-250000 UZS",
   "image": "images/cover.jpg",
   "sameAs": [
-    "https://t.me/REPLACE_USERNAME",
-    "https://instagram.com/REPLACE_USERNAME"
+    "https://t.me/renTent_uz",
+    "https://www.instagram.com/rentent.uz/"
   ]
 }
 </script>
@@ -117,9 +121,9 @@
       </nav>
       <div class="lang-switcher">
         <button class="lang-btn" data-lang="ru">RU</button>
-        <button class="lang-btn" data-lang="en">EN</button>
+        <button class="lang-btn" data-lang="uz">UZ</button>
       </div>
-      <a class="btn btn--accent btn--small" data-contact="bot" href="#" data-i18n="nav.book">Забронировать</a>
+      <a class="btn btn--accent btn--small" data-contact="telegram" href="#" data-i18n="nav.book">Написать</a>
     </div>
   </header>
 
@@ -135,18 +139,16 @@
         </p>
         <h1 class="hero__title" data-i18n-html="hero.title">Снаряжение для&nbsp;гор,<br />которое не&nbsp;нужно покупать
         </h1>
-        <p class="hero__subtitle" data-i18n="hero.subtitle">Оплата только при получении — без затрат на инвентарь,
-          который пылится дома.</p>
-
-        <ul class="value-props value-props--center value-props--light">
+         <ul class="value-props value-props--center value-props--light">
           <li data-i18n="hero.vp1">Выдача в день обращения</li>
           <li data-i18n="hero.vp2">Только оригинал: Naturehike, Jeep, Camel, FireMaple</li>
         </ul>
 
         <div class="cta-row cta-row--center">
-          <a class="btn btn--accent" data-contact="bot" href="#" data-i18n="hero.btn_bot">Забронировать онлайн в
+          <!-- Bot booking hidden for now — Telegram contact is the primary CTA. -->
+          <a class="btn btn--accent is-hidden" data-contact="bot" href="#" data-i18n="hero.btn_bot">Забронировать онлайн в
             боте</a>
-          <a class="btn btn--outline-light" data-contact="telegram" href="#" data-i18n="hero.btn_manager">Написать
+          <a class="btn btn--accent" data-contact="telegram" href="#" data-i18n="hero.btn_manager">Написать
             менеджеру</a>
           <a class="btn btn--outline-light" data-contact="phone" href="#" data-i18n="hero.btn_phone">Позвонить</a>
           <a class="btn btn--text-light" data-contact="instagram" href="#">Instagram →</a>
@@ -438,14 +440,19 @@
           снаряжения<br />и оформим бронь</h2>
 
         <div class="contact-buttons">
-          <a class="btn btn--accent" data-contact="bot" href="#" data-i18n="contact.btn_bot">Забронировать онлайн в
+          <!-- Bot booking hidden for now — Telegram contact is the primary CTA. -->
+          <a class="btn btn--accent is-hidden" data-contact="bot" href="#" data-i18n="contact.btn_bot">Забронировать онлайн в
             боте</a>
-          <a class="btn btn--outline-light" data-contact="telegram" href="#" data-i18n="contact.btn_telegram">Написать в
+          <a class="btn btn--accent" data-contact="telegram" href="#" data-i18n="contact.btn_telegram">Написать в
             Telegram</a>
+          <a class="btn btn--outline-light" data-contact="channel" href="#" data-i18n="contact.btn_channel">Telegram-канал</a>
           <a class="btn btn--outline-light" data-contact="phone" href="#" data-i18n="contact.btn_phone">Позвонить</a>
           <a class="btn btn--text-light" data-contact="instagram" href="#">Instagram →</a>
         </div>
 
+        <p class="contact-band__phone">
+          <a data-contact="phone" href="#">📞 +998 90 965 70 35</a>
+        </p>
         <p class="contact-band__address" data-i18n="contact.address">🇺🇿 Узбекистан, город Ташкент 📍</p>
       </div>
     </section>
@@ -457,7 +464,7 @@
       <p class="brand__word brand__word--footer" data-i18n="footer.brand">Аренда туристического инвентаря</p>
       <nav class="site-footer__links" aria-label="Контакты">
         <a data-contact="telegram" href="#">Telegram</a>
-        <a data-contact="phone" href="#" data-i18n="footer.phone">Телефон</a>
+        <a data-contact="channel" href="#" data-i18n="footer.channel">Канал</a>
         <a data-contact="instagram" href="#">Instagram</a>
       </nav>
       <p class="site-footer__copy" data-i18n-html="footer.copy"></p>
@@ -466,8 +473,8 @@
 
   <script src="https://cdn.jsdelivr.net/npm/viewerjs@1.11.6/dist/viewer.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/i18next@23/i18next.min.js" defer></script>
-  <script src="js/translations.js" defer></script>
-  <script src="js/main.js?v=5" defer></script>
+  <script src="js/translations.js?v=4" defer></script>
+  <script src="js/main.js?v=6" defer></script>
 </body>
 
 </html>
