@@ -7,8 +7,10 @@ configured — see settings/google_calendar.py.
 
 Only confirmed orders (in_progress/taken) get a calendar event; a 10-minute
 payment hold ("created") is deliberately not synced, so unpaid holds never
-clutter the calendar. Completed orders keep their event (marked "[Завершён]")
-as a record of past pickups; cancelled orders have theirs deleted.
+clutter the calendar. The event title is prefixed with the current status
+("[Отдано]", "[Пауза]", "[Возвращён]", "[Закрыт]") so admins can tell them
+apart at a glance without opening each event; cancelled orders have theirs
+deleted instead.
 """
 
 import asyncio
@@ -105,6 +107,8 @@ async def _sync(settings: GoogleCalendarSettings, session: AsyncSession, order: 
         body = _order_event_body(order)
         if body is None:
             return
+        if order.status == "taken":
+            body["summary"] = f"[Отдано] {body['summary']}"
         if order.google_event_id:
             event_id = order.google_event_id
             await asyncio.to_thread(
@@ -119,11 +123,15 @@ async def _sync(settings: GoogleCalendarSettings, session: AsyncSession, order: 
             order.google_event_id = created["id"]
             await session.commit()
 
-    elif order.status in {"paused", "completed"} and order.google_event_id:
+    elif order.status in {"paused", "completed", "returned"} and order.google_event_id:
         body = _order_event_body(order)
         if body is None:
             return
-        prefix = "[Пауза] " if order.status == "paused" else "[Завершён] "
+        prefix = {
+            "paused": "[Пауза] ",
+            "completed": "[Закрыт] ",     # unsuccessful outcome — no return, no revenue
+            "returned": "[Возвращён] ",   # successful outcome — client returned the gear
+        }[order.status]
         body["summary"] = f"{prefix}{body['summary']}"
         event_id = order.google_event_id
         await asyncio.to_thread(

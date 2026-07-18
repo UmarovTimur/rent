@@ -59,3 +59,11 @@ class InvalidRentalPeriodError(BaseError):
 class InvalidStatusTransitionError(BaseError):
     def __init__(self, message: str = "Invalid status transition"):
         super().__init__(message)
+
+
+class TooManyActiveOrdersError(BaseError):
+    def __init__(
+        self,
+        message: str = "У вас уже слишком много активных заказов. Завершите или отмените один из них, чтобы оформить новый.",
+    ):
+        super().__init__(message)

@@ -10,6 +10,7 @@ import {
     Box,
     Mark,
 } from '@chakra-ui/react'
+import { useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { IoArrowBackOutline } from 'react-icons/io5'
 import ConfirmOrderButton from './components/ConfirmOrderButton.tsx'
@@ -56,6 +57,15 @@ export const ConfirmOrderPage = {
         const { formState, errors, updateField, updateSelectField } = useOrder()
         const formattedStartDate = formatInputDate(startDate)
         const formattedEndDate = formatInputDate(endDate)
+
+        // Only one pickup location exists today — pre-select it so the client
+        // isn't forced to open a dropdown just to pick the single option.
+        useEffect(() => {
+            if (!formState.address) {
+                updateSelectField('address', addressOptions[0].value)
+            }
+            // eslint-disable-next-line react-hooks/exhaustive-deps
+        }, [])
 
         return (
             <MotionBody

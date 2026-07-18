@@ -10,9 +10,12 @@ export interface RentalStatusMeta {
 export const RENTAL_STATUS_MAP: Record<OrderStatus, RentalStatusMeta> = {
     created: { color: 'gray', label: 'Создан' },
     in_progress: { color: 'blue', label: 'В процессе' },
-    taken: { color: 'orange', label: 'Выдан' },
+    taken: { color: 'orange', label: 'Отдан' },
     paused: { color: 'purple', label: 'Пауза' },
-    completed: { color: 'green', label: 'Завершён' },
+    // Successful outcome — client returned the gear, slot released.
+    returned: { color: 'green', label: 'Возвращён' },
+    // Unsuccessful outcome — closed without a return (no revenue), kept distinct from "returned" for stats.
+    completed: { color: 'red', label: 'Закрыт (неуспешно)' },
     canceled: { color: 'red', label: 'Отменён', calendarShade: 700 },
 }
 

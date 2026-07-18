@@ -16,9 +16,7 @@ import { AuthService } from '@/api/AuthService'
 import { useUserContext } from '@/contexts/UserContext'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
-import { ProductService } from '@/api/ProductService'
-import { useEffect, useMemo, useState } from 'react'
-import { Product } from '@/types/Products.ts'
+import { useState } from 'react'
 import { formatPriceK } from '@/utils/price'
 import axios from 'axios'
 import API_BASE_URL from '@/config'
@@ -41,8 +39,6 @@ const formatRentalRange = (start?: string | null, end?: string | null) => {
 export default function ProfilePage() {
     const { onClose } = useDrawer()
     const { user, orderHistory, loading } = useUserContext()
-    const [products, setProducts] = useState<Product[]>([])
-    const [productsLoading, setProductsLoading] = useState(true)
     const isWebUser = Boolean(localStorage.getItem('auth_token'))
 
     const handleLogout = () => {
@@ -60,14 +56,31 @@ export default function ProfilePage() {
     }
 
     const translateStatus = (status: string) => {
+        // Simplified client-facing wording — the client doesn't need to know
+        // internal states like "paused", just where their order stands.
         const statusMap: Record<string, string> = {
-            in_progress: 'В процессе',
-            taken: 'Выдан',
-            created: 'Создан',
-            canceled: 'Отменен',
-            completed: 'Завершен',
+            created: 'В процессе',
+            in_progress: 'Одобрен',
+            taken: 'У клиента',
+            paused: 'Одобрен',
+            returned: 'Завершён',
+            completed: 'Завершён',
+            canceled: 'Отменён',
         }
         return statusMap[status] || status
+    }
+
+    const statusColor = (status: string) => {
+        const colorMap: Record<string, string> = {
+            created: 'orange.400',
+            in_progress: 'green.500',
+            paused: 'purple.500',
+            taken: 'blue.500',
+            returned: 'green.600',
+            completed: 'gray.500',
+            canceled: 'red.500',
+        }
+        return colorMap[status] || 'accent'
     }
 
     const translatePayment = (payment: string) => {
@@ -77,27 +90,6 @@ export default function ProfilePage() {
         }
         return paymentMap[payment] || payment
     }
-
-    useEffect(() => {
-        const fetchProducts = async () => {
-            try {
-                const productsData = await ProductService.fetchAllProducts()
-                setProducts(productsData)
-            } catch (err) {
-                console.error('Failed to load products:', err)
-            } finally {
-                setProductsLoading(false)
-            }
-        }
-
-        fetchProducts()
-    }, [])
-
-    const productMap = useMemo(() => {
-        const map = new Map<number, Product>()
-        products.forEach((product) => map.set(product.product_id, product))
-        return map
-    }, [products])
 
     const [cancellingOrderId, setCancellingOrderId] = useState<number | null>(null)
     const [confirmCancelOrderId, setConfirmCancelOrderId] = useState<number | null>(null)
@@ -117,8 +109,7 @@ export default function ProfilePage() {
 
     const CANCELLABLE_STATUSES = ['created', 'in_progress']
 
-    const isLoading = loading || productsLoading
-    if (isLoading) {
+    if (loading) {
         return (
             <Center h="100vh">
                 <Spinner size="xl" />
@@ -189,7 +180,8 @@ export default function ProfilePage() {
                                     pos="relative"
                                 >
                                     <Center
-                                        bg="accent"
+                                        bg={statusColor(order.status)}
+                                        color="white"
                                         fontWeight="600"
                                         rounded="full"
                                         px="16px"
@@ -205,10 +197,7 @@ export default function ProfilePage() {
                                         {formatOrderDate(order.order_date)}
                                     </Text>
 
-                                    <Text fontWeight="500">{order.order_id}</Text>
-                                    <Text fontWeight="500">
-                                        {order.address || ''}
-                                    </Text>
+                                    <Text fontWeight="500">Заказ №{order.order_id}</Text>
 
                                     {(() => {
                                         const firstItemWithDates = order.items.find(
@@ -226,17 +215,13 @@ export default function ProfilePage() {
                                     })()}
 
                                     <Flex direction="column" gap="4px">
-                                        {order.items.map((item) => {
-                                            const productInfo = productMap.get(item.product_id)
-                                            return (
-                                                <Text key={item.order_item_id} fontWeight="500">
-                                                    {item.quantity} ×{' '}
-                                                    {productInfo
-                                                        ? `${productInfo.name} - ${formatPriceK(item.unit_price * item.quantity)}`
-                                                        : `Товар #${item.product_id}`}
-                                                </Text>
-                                            )
-                                        })}
+                                        {order.items.map((item) => (
+                                            <Text key={item.order_item_id} fontWeight="500">
+                                                {item.quantity} ×{' '}
+                                                {item.product_name || `Товар #${item.product_id}`} -{' '}
+                                                {formatPriceK(item.unit_price * item.quantity)}
+                                            </Text>
+                                        ))}
                                     </Flex>
 
                                     <Text fontWeight="500">
@@ -246,6 +231,12 @@ export default function ProfilePage() {
                                     <Text fontWeight="500">
                                         Итоговая сумма: {formatPriceK(order.total_price)}
                                     </Text>
+
+                                    {order.address && (
+                                        <Text fontWeight="500" color="text/50">
+                                            Адрес: {order.address}
+                                        </Text>
+                                    )}
 
                                     {CANCELLABLE_STATUSES.includes(order.status) && (
                                         <Button

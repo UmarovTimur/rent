@@ -30,7 +30,7 @@ export interface Basket {
     total_price: number
 }
 
-export type OrderStatus = 'created' | 'in_progress' | 'completed' | 'canceled' | 'taken' | 'paused'
+export type OrderStatus = 'created' | 'in_progress' | 'completed' | 'canceled' | 'taken' | 'returned' | 'paused'
 
 export type PaymentOption = 'card' | 'cash'
 

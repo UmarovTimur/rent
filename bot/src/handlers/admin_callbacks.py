@@ -33,9 +33,10 @@ _MAX_ORDERS = 20
 _STATUS_LABEL = {
     "created": "🆕 Создан",
     "in_progress": "▶️ В работе",
-    "taken": "📦 Принят",
+    "taken": "📦 Отдано клиенту",
     "paused": "⏸ Пауза",
-    "completed": "✅ Закрыт",
+    "returned": "✅ Возвращён",
+    "completed": "🚫 Закрыт (неуспешно)",
     "canceled": "❌ Отменён",
 }
 
@@ -64,13 +65,14 @@ def _filter_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.button(text="🆕 Создан",     callback_data="filter:created")
     builder.button(text="▶️ В работе",   callback_data="filter:in_progress")
-    builder.button(text="📦 Принят",     callback_data="filter:taken")
+    builder.button(text="📦 Отдано",     callback_data="filter:taken")
     builder.button(text="⏸ Пауза",      callback_data="filter:paused")
-    builder.button(text="✅ Закрыт",     callback_data="filter:completed")
+    builder.button(text="✅ Возвращён",  callback_data="filter:returned")
+    builder.button(text="🚫 Закрыт",     callback_data="filter:completed")
     builder.button(text="❌ Отменён",    callback_data="filter:canceled")
     builder.button(text="🔥 Активные",  callback_data="filter:active")
     builder.button(text="📋 Все",        callback_data="filter:all")
-    builder.adjust(3, 3, 2)
+    builder.adjust(3, 3, 3)
     return builder.as_markup()
 
 
@@ -82,17 +84,31 @@ def _order_keyboard(order_id: int, status: str) -> InlineKeyboardMarkup:
         builder.button(text="⏸ Пауза",    callback_data=f"order:pause:{order_id}")
         builder.button(text="🔒 Закрыть", callback_data=f"order:close:{order_id}")
         builder.adjust(3)
-    elif status in {"in_progress", "taken"}:
-        # Already approved / in work — no re-approval.
+    elif status == "in_progress":
+        # Approved and holding the slot — next physical step is handing the gear over.
+        builder.button(text="📦 Отдал",   callback_data=f"order:handover:{order_id}")
         builder.button(text="⏸ Пауза",    callback_data=f"order:pause:{order_id}")
         builder.button(text="🔒 Закрыть", callback_data=f"order:close:{order_id}")
-        builder.adjust(2)
+        builder.adjust(3)
+    elif status == "taken":
+        # Gear is with the client — next physical step is getting it back.
+        # "Отменить отдал" covers marking it as taken by mistake.
+        builder.button(text="✅ Вернули",       callback_data=f"order:return:{order_id}")
+        builder.button(text="↩️ Отменить отдал", callback_data=f"order:undo_handover:{order_id}")
+        builder.button(text="⏸ Пауза",          callback_data=f"order:pause:{order_id}")
+        builder.button(text="🔒 Закрыть",       callback_data=f"order:close:{order_id}")
+        builder.adjust(2, 2)
     elif status == "paused":
         builder.button(text="▶️ Возобновить", callback_data=f"order:approve:{order_id}")
         builder.button(text="🔒 Закрыть",     callback_data=f"order:close:{order_id}")
         builder.adjust(2)
+    elif status == "returned":
+        # Undo goes back to "taken" (a return always follows a handover) — not
+        # a full reopen, so admins correcting a mis-click keep the handover marker.
+        builder.button(text="↩️ Отменить возврат", callback_data=f"order:undo_return:{order_id}")
+        builder.adjust(1)
     elif status == "completed":
-        builder.button(text="↩️ Отменить закрытие", callback_data=f"order:reopen:{order_id}")
+        builder.button(text="↩️ Открыть заново", callback_data=f"order:reopen:{order_id}")
         builder.adjust(1)
     return builder.as_markup()
 
@@ -174,16 +190,32 @@ async def send_order_to_admins(order_id: int) -> None:
 # ─── Order action callback ────────────────────────────────────────────────────
 
 _ACTION_STATUS = {
-    "approve": "in_progress",
-    "pause":   "paused",
-    "close":   "completed",
-    "reopen":  "in_progress",
+    "approve":       "in_progress",
+    "pause":         "paused",
+    "close":         "completed",
+    "reopen":        "in_progress",
+    "handover":      "taken",       # "Отдал" — gear physically given to the client
+    "return":        "returned",    # "Вернули" — gear physically given back, successful outcome
+    "undo_handover": "in_progress", # mistake correction: undo "Отдал"
+    "undo_return":   "taken",       # mistake correction: undo "Вернули"
+}
+
+# Only reachable from this status — guards against a stale/double-tapped
+# keyboard applying an action out of order (e.g. two admins, or a leftover
+# card from before a pause/reopen).
+_ACTION_REQUIRES_STATUS = {
+    "handover": "in_progress",
+    "return": "taken",
+    "undo_handover": "taken",
+    "undo_return": "returned",
+    "reopen": "completed",
 }
 
 # Actions where the admin is asked for a short comment explaining the change to
 # the client, before it's applied. "approve" only prompts when it means resuming
 # a paused order — the very first confirmation (from "created") keeps its own
-# automatic "your order is confirmed" message with no prompt.
+# automatic "your order is confirmed" message with no prompt. "handover"/"return"
+# are physical-handoff markers the client already knows about — no prompt needed.
 _ACTION_VERB = {
     "pause": "приостановили",
     "close": "закрыли",
@@ -235,15 +267,36 @@ async def _apply_order_action(
             logger.exception("Failed to notify client %s about order %s (%s)", order.get("user_id"), order_id, action)
 
     if admin_message_id:
-        try:
-            await bot.edit_message_text(
-                _format_order(order),
-                chat_id=reply_chat_id,
-                message_id=admin_message_id,
-                reply_markup=_order_keyboard(order_id, new_status),
-            )
-        except Exception:
-            logger.exception("Failed to refresh admin card for order %s", order_id)
+        await _refresh_admin_card(order_id, order, new_status, reply_chat_id, admin_message_id)
+
+
+async def _refresh_admin_card(
+    order_id: int, order: dict, new_status: str, chat_id: int, message_id: int
+) -> None:
+    """Update the admin card in place after a status change.
+
+    The card may be a plain text message (from send_order_to_admins) or a photo
+    message with a caption (the receipt forwarded by _process_receipt) — Telegram
+    rejects edit_message_text on a photo message ("there is no text to edit"), so
+    try text first and fall back to caption, then to reply-markup-only as a last
+    resort, instead of silently leaving a stale keyboard on the card.
+    """
+    text = _format_order(order)
+    keyboard = _order_keyboard(order_id, new_status)
+    try:
+        await bot.edit_message_text(text, chat_id=chat_id, message_id=message_id, reply_markup=keyboard)
+        return
+    except Exception:
+        pass
+    try:
+        await bot.edit_message_caption(chat_id=chat_id, message_id=message_id, caption=text, reply_markup=keyboard)
+        return
+    except Exception:
+        pass
+    try:
+        await bot.edit_message_reply_markup(chat_id=chat_id, message_id=message_id, reply_markup=keyboard)
+    except Exception:
+        logger.exception("Failed to refresh admin card for order %s", order_id)
 
 
 @router.callback_query(F.data.startswith("order:"))
@@ -277,6 +330,17 @@ async def handle_order_action(callback: CallbackQuery, state: FSMContext) -> Non
             )
         return
 
+    # Guard against a stale keyboard: "Отдал" only makes sense from in_progress,
+    # "Вернули" only from taken (can't return gear that was never handed over).
+    required_status = _ACTION_REQUIRES_STATUS.get(action)
+    if required_status and current_status != required_status:
+        await callback.answer("Статус заказа уже изменился", show_alert=True)
+        if callback.message:
+            await callback.message.edit_reply_markup(
+                reply_markup=_order_keyboard(order_id, current_status or "")
+            )
+        return
+
     if not callback.message:
         return
 
@@ -300,12 +364,15 @@ async def handle_order_action(callback: CallbackQuery, state: FSMContext) -> Non
         )
         return
 
+    direct_client_text = {
+        "approve": "✅ <b>Ваш заказ #{order_id} подтверждён!</b> Ждём вас.",
+        "return": "✅ <b>Заказ #{order_id} завершён.</b> Спасибо, что вернули снаряжение!",
+    }.get(action)
+
     await _apply_order_action(
         order_id,
         action,
-        client_text=(
-            "✅ <b>Ваш заказ #{order_id} подтверждён!</b> Ждём вас." if action == "approve" else None
-        ),
+        client_text=direct_client_text,
         comment=None,
         reply_chat_id=callback.message.chat.id,
         admin_message_id=callback.message.message_id,

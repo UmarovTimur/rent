@@ -6,6 +6,7 @@ import {
     useEffect,
     ReactNode,
 } from 'react'
+import axios from 'axios'
 import { OrderService } from '@/api/OrderService'
 import { PaymentOption } from '@/types/Basket'
 import { Basket } from '@/types/Basket'
@@ -162,7 +163,12 @@ export const OrderProvider = ({
                 setIsReceiptNoticeOpen(true)
                 return true
             } catch (error) {
-                setSubmitError('Ошибка при оформлении заказа')
+                let message = 'Ошибка при оформлении заказа'
+                if (axios.isAxiosError(error)) {
+                    const detail = (error.response?.data as { detail?: string } | undefined)?.detail
+                    if (detail) message = detail
+                }
+                setSubmitError(message)
                 console.error('Order error:', error)
                 return false
             } finally {

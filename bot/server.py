@@ -119,6 +119,10 @@ async def _fetch_order(order_id: int) -> dict | None:
         return None
 
 
+_MANAGER_USERNAME = "@withBen"
+_SUPPORT_USERNAME = "@Status_3"
+
+
 async def _notify_client_created(order_id: int) -> None:
     from src.config import DEPOSIT_AMOUNT, PAYMENT_CARD_NUMBER, bot, fmt_price
     from datetime import datetime, timedelta, timezone
@@ -126,25 +130,34 @@ async def _notify_client_created(order_id: int) -> None:
     if not order:
         return
 
-    # Earliest rental_start across all items → pickup datetime (UTC+5 Uzbekistan)
+    # Rental window across all items (earliest start / latest end) → pickup
+    # and return datetimes, displayed in local Uzbekistan time (UTC+5).
     rental_starts = [i["rental_start"] for i in order.get("items", []) if i.get("rental_start")]
+    rental_ends = [i["rental_end"] for i in order.get("items", []) if i.get("rental_end")]
     pickup_line = ""
     if rental_starts:
-        earliest = min(rental_starts)
-        dt = datetime.fromisoformat(earliest.replace("Z", "+00:00"))
-        dt_uz = dt + timedelta(hours=5)
-        pickup_line = f"📅 Дата получения: <b>{dt_uz.strftime('%d.%m.%Y в %H:%M')}</b>\n"
+        dt = datetime.fromisoformat(min(rental_starts).replace("Z", "+00:00")) + timedelta(hours=5)
+        pickup_line = f"📅 Дата получения: <b>{dt.strftime('%d.%m.%Y в %H:%M')}</b>\n"
+    return_line = ""
+    if rental_ends:
+        dt = datetime.fromisoformat(max(rental_ends).replace("Z", "+00:00")) + timedelta(hours=5)
+        return_line = f"📆 Дата возврата: <b>{dt.strftime('%d.%m.%Y в %H:%M')}</b>\n"
 
-    # deposit = round(order["total_price"] * DEPOSIT_PERCENT / 100)  # фиксированная сумма ниже
+    address = order.get("address") or "уточняется у менеджера"
+    # Spaces stripped so tapping the <code> block copies a value that pastes
+    # cleanly into a bank app's transfer field.
+    card_number = (PAYMENT_CARD_NUMBER or "").replace(" ", "")
     deposit = DEPOSIT_AMOUNT
     text = (
-        f"✅ <b>Ваш заказ #{order_id} создан!</b>\n\n"
+        f"⭕️ <b>Ваш заказ #{order_id} создан!</b>\n\n"
         f"{pickup_line}"
-        f"📍 Адрес выдачи: <b>Chilonzor 3-kvartal</b>\n\n"
-        f"Для подтверждения переведите предоплату <b>{fmt_price(deposit)} сум</b> на карту:\n"
-        f"💳 <code>{PAYMENT_CARD_NUMBER}</code>\n\n"
-        f"После оплаты отправьте фото чека в этот чат.\n\n"
-        f"👨‍💼 Менеджер: @status_3"
+        f"{return_line}"
+        f"📍 Адрес выдачи: <b>{address}</b>\n\n"
+        f"❕Для подтверждения переведите предоплату <b>{fmt_price(deposit)} сум</b> на карту:\n\n"
+        f"💳 <code>{card_number}</code>\n\n"
+        f"❗️ После оплаты отправьте фото чека в этот чат\n\n"
+        f"👨‍💼 Менеджер: {_MANAGER_USERNAME}\n"
+        f"🛠 Поддержка: {_SUPPORT_USERNAME}"
     )
     try:
         await bot.send_message(order["user_id"], text)

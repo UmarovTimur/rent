@@ -7,8 +7,9 @@ from pydantic import BaseModel
 class OrderStatus(StrEnum):
     CREATED = "created"
     IN_PROGRESS = "in_progress"
-    COMPLETED = "completed"
-    TAKEN = "taken"
+    TAKEN = "taken"          # handed over to the client ("Отдал") — admin marker, gates RETURNED
+    RETURNED = "returned"    # client gave the gear back — successful outcome, releases the slot
+    COMPLETED = "completed"  # closed without a successful return (no-show, dispute, etc.) — unsuccessful outcome
     CANCELED = "canceled"
     PAUSED = "paused"
 

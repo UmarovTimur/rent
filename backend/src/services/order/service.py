@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
@@ -10,7 +10,7 @@ from src.clients.database.models.order import Order, OrderItem
 from src.clients.database.models.user import User
 from src.services.base import BaseService
 from src.services.basket.interface import BasketServiceI
-from src.services.errors import OrderNotFoundError, BasketNotFoundError
+from src.services.errors import OrderNotFoundError, BasketNotFoundError, TooManyActiveOrdersError
 from src.services.order.interface import OrderServiceI
 from src.services.order.schemas import OrderCreate, OrderResponse, OrderStatus, OrderItemResponse
 from src.services.rental.interface import RentalServiceI
@@ -19,6 +19,18 @@ from src.services.rental_pricing import (
     line_half_day_units,
 )
 from src.settings.billing import BillingSettings
+
+# Caps how many orders a single user can have open at once (created/in_progress/
+# taken/paused — anything not yet returned/completed/canceled), so one user can't
+# mass-hold inventory across many orders. Deliberately not configurable via env —
+# bump this constant directly if it ever needs to change.
+MAX_ACTIVE_ORDERS_PER_USER = 3
+_ACTIVE_ORDER_STATUSES = (
+    OrderStatus.CREATED.value,
+    OrderStatus.IN_PROGRESS.value,
+    OrderStatus.TAKEN.value,
+    OrderStatus.PAUSED.value,
+)
 
 
 class OrderService(BaseService, OrderServiceI):
@@ -42,6 +54,20 @@ class OrderService(BaseService, OrderServiceI):
 
             if not basket or not basket.items:
                 raise BasketNotFoundError
+
+            # Admins place orders on behalf of phone-in clients too, so they
+            # legitimately carry more concurrent active orders than a regular
+            # customer — the cap only protects against one client hoarding
+            # inventory, not against normal admin usage.
+            is_admin = await session.scalar(select(User.is_admin).where(User.user_id == user_id))
+            if not is_admin:
+                active_orders_count = await session.scalar(
+                    select(func.count())
+                    .select_from(Order)
+                    .where(Order.user_id == user_id, Order.status.in_(_ACTIVE_ORDER_STATUSES))
+                )
+                if active_orders_count >= MAX_ACTIVE_ORDERS_PER_USER:
+                    raise TooManyActiveOrdersError
 
             rental_demands: dict[tuple[int, datetime, datetime], int] = {}
             for basket_item in basket.items:

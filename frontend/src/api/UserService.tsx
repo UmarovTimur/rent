@@ -25,6 +25,7 @@ export interface OrderHistory {
     items: {
         order_item_id: number
         product_id: number
+        product_name?: string | null
         unit_price: number
         quantity: number
         rental_start?: string | null

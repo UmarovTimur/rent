@@ -31,11 +31,24 @@ from src.services.rental.schemas import (
 
 ALLOWED_TRANSITIONS: dict[str, set[str]] = {
     # Matches the admin bot's keyboard (bot/src/handlers/admin_callbacks.py
-    # _order_keyboard): every status offers Pause and Close (except completed,
-    # which offers reopen; canceled is terminal), so those must all be reachable
-    # from every non-terminal status. Availability is only re-checked for
-    # transitions INTO in_progress/taken (see update_rental_status) — pausing or
-    # closing only releases a slot, never claims one, so no re-check is needed there.
+    # _order_keyboard): every active status offers Pause, Close and Returned
+    # (except canceled, which is terminal), so those must all be reachable from
+    # every non-terminal status. TAKEN ("Отдал" — handed over to the client) is
+    # only reachable from IN_PROGRESS: you can't hand over gear before payment
+    # is confirmed. RETURNED and COMPLETED are both terminal-ish success/failure
+    # outcomes for revenue stats (see calendar_sync.py and _get_order_reservations
+    # — neither blocks availability): RETURNED means the client gave the gear
+    # back (successful order); COMPLETED means the order was closed WITHOUT a
+    # successful return (no-show, dispute, etc. — no revenue). Availability is
+    # only re-checked for transitions INTO in_progress/taken (see
+    # update_rental_status) — pausing/closing/returning only releases a slot,
+    # never claims one, so no re-check is needed there.
+    #
+    # TAKEN -> IN_PROGRESS and RETURNED -> TAKEN are admin mistake-correction
+    # ("Отменить отдал" / "Отменить возврат") — undoing a handover/return re-enters
+    # a slot-holding status, so it goes through the same availability re-check as
+    # any other entry into IN_PROGRESS/TAKEN (harmless if nothing conflicts, but
+    # correctly rejects if someone else booked the now-freed slot in the meantime).
     OrderStatus.CREATED.value: {
         OrderStatus.IN_PROGRESS.value,
         OrderStatus.PAUSED.value,
@@ -47,17 +60,22 @@ ALLOWED_TRANSITIONS: dict[str, set[str]] = {
         OrderStatus.PAUSED.value,
         OrderStatus.CANCELED.value,
         OrderStatus.COMPLETED.value,
+        OrderStatus.RETURNED.value,
     },
     OrderStatus.TAKEN.value: {
+        OrderStatus.IN_PROGRESS.value,
         OrderStatus.PAUSED.value,
         OrderStatus.COMPLETED.value,
         OrderStatus.CANCELED.value,
+        OrderStatus.RETURNED.value,
     },
     OrderStatus.PAUSED.value: {
         OrderStatus.IN_PROGRESS.value,
         OrderStatus.COMPLETED.value,
         OrderStatus.CANCELED.value,
+        OrderStatus.RETURNED.value,
     },
+    OrderStatus.RETURNED.value: {OrderStatus.TAKEN.value},
     OrderStatus.COMPLETED.value: {OrderStatus.IN_PROGRESS.value},
     OrderStatus.CANCELED.value: set(),
 }

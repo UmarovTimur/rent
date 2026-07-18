@@ -138,13 +138,15 @@ async def _process_receipt(
     from_user_id: int,
     from_first_name: str | None,
     from_username: str | None,
-    photo_file_id: str,
+    file_id: str,
+    is_document: bool,
     order: dict,
 ) -> None:
-    """Forward a receipt photo to admins and auto-confirm the given order's
-    payment right away — no admin click needed. This makes the hold permanent
-    (see RentalService.update_rental_status, which re-checks availability on
-    this exact transition). If someone else has since taken the slot, the
+    """Forward a receipt (photo or arbitrary file — screenshots and PDFs alike)
+    to admins and auto-confirm the given order's payment right away — no admin
+    click needed. This makes the hold permanent (see
+    RentalService.update_rental_status, which re-checks availability on this
+    exact transition). If someone else has since taken the slot, the
     confirmation is rejected (409): cancel this order and tell the client
     directly instead of leaving it stuck.
     """
@@ -161,8 +163,10 @@ async def _process_receipt(
     caption = (
         f"📎 <b>Чек об оплате депозита</b>\n"
         f"Клиент: {from_first_name or '—'} ({client_label})\n"
-        f"Заказ <b>#{order_id}</b> | {fmt_price(order['total_price'])} сум\n"
     )
+    if order.get("phone"):
+        caption += f"📞 {order['phone']}\n"
+    caption += f"Заказ <b>#{order_id}</b> | {fmt_price(order['total_price'])} сум\n"
     if items_text:
         caption += f"\n<b>Состав:</b>\n{items_text}"
 
@@ -172,7 +176,13 @@ async def _process_receipt(
 
     if ADMIN_CHAT_ID:
         try:
-            await bot.send_photo(ADMIN_CHAT_ID, photo_file_id, caption=caption, reply_markup=keyboard)
+            # Documents (sent "as file") keep their original quality/format —
+            # important for PDFs and for images some phones send uncompressed.
+            # send_photo would reject a PDF outright and re-compress an image.
+            if is_document:
+                await bot.send_document(ADMIN_CHAT_ID, file_id, caption=caption, reply_markup=keyboard)
+            else:
+                await bot.send_photo(ADMIN_CHAT_ID, file_id, caption=caption, reply_markup=keyboard)
         except Exception:
             logger.exception("Failed to forward receipt to admin chat %s", ADMIN_CHAT_ID)
 
@@ -190,6 +200,10 @@ async def _process_receipt(
             await bot.send_message(
                 reply_chat_id, f"✅ Оплата по заказу #{order_id} подтверждена, бронь закреплена за вами."
             )
+            try:
+                await bot.send_location(reply_chat_id, latitude=41.271367, longitude=69.228406)
+            except Exception:
+                logger.exception("Failed to send pickup location to chat %s", reply_chat_id)
         else:
             async with aiohttp.ClientSession(timeout=REQUEST_TIMEOUT) as session:
                 async with session.patch(
@@ -207,8 +221,9 @@ async def _process_receipt(
         logger.exception("Failed to auto-confirm payment for order %s", order_id)
 
 
-@router.message(F.photo)
-async def handle_receipt_photo(message: Message, bot: Bot, state: FSMContext) -> None:
+async def _handle_receipt_upload(
+    message: Message, bot: Bot, state: FSMContext, *, file_id: str, is_document: bool
+) -> None:
     if not message.from_user:
         return
 
@@ -242,8 +257,6 @@ async def handle_receipt_photo(message: Message, bot: Bot, state: FSMContext) ->
         await message.answer("У вас нет заказов, ожидающих подтверждения оплаты.")
         return
 
-    photo_file_id = message.photo[-1].file_id
-
     if len(pending) == 1:
         await _process_receipt(
             bot,
@@ -251,7 +264,8 @@ async def handle_receipt_photo(message: Message, bot: Bot, state: FSMContext) ->
             from_user_id=user_id,
             from_first_name=message.from_user.first_name,
             from_username=message.from_user.username,
-            photo_file_id=photo_file_id,
+            file_id=file_id,
+            is_document=is_document,
             order=pending[0],
         )
         return
@@ -259,7 +273,7 @@ async def handle_receipt_photo(message: Message, bot: Bot, state: FSMContext) ->
     # Multiple orders awaiting payment — don't guess which one the receipt is
     # for (misattributing a payment is a real mistake, not a cosmetic one).
     # Ask the client, then process the chosen order the same way as above.
-    await state.update_data(pending_receipt_photo_id=photo_file_id)
+    await state.update_data(pending_receipt_file_id=file_id, pending_receipt_is_document=is_document)
     builder = InlineKeyboardBuilder()
     for o in pending:
         builder.button(
@@ -273,6 +287,20 @@ async def handle_receipt_photo(message: Message, bot: Bot, state: FSMContext) ->
     )
 
 
+@router.message(F.photo)
+async def handle_receipt_photo(message: Message, bot: Bot, state: FSMContext) -> None:
+    await _handle_receipt_upload(message, bot, state, file_id=message.photo[-1].file_id, is_document=False)
+
+
+@router.message(F.document)
+async def handle_receipt_document(message: Message, bot: Bot, state: FSMContext) -> None:
+    # Covers PDFs and images sent "as file" (uncompressed) — some phones/apps
+    # default to this for screenshots, and F.photo never fires for them.
+    if not message.document:
+        return
+    await _handle_receipt_upload(message, bot, state, file_id=message.document.file_id, is_document=True)
+
+
 @router.callback_query(F.data.startswith("receipt_order:"))
 async def handle_receipt_order_choice(callback: CallbackQuery, bot: Bot, state: FSMContext) -> None:
     if not callback.from_user or not callback.data:
@@ -280,9 +308,10 @@ async def handle_receipt_order_choice(callback: CallbackQuery, bot: Bot, state: 
 
     order_id = int(callback.data.split(":")[1])
     data = await state.get_data()
-    photo_file_id = data.get("pending_receipt_photo_id")
+    file_id = data.get("pending_receipt_file_id")
+    is_document = bool(data.get("pending_receipt_is_document"))
 
-    if not photo_file_id:
+    if not file_id:
         await callback.answer("Чек не найден, отправьте его ещё раз.", show_alert=True)
         return
 
@@ -305,14 +334,15 @@ async def handle_receipt_order_choice(callback: CallbackQuery, bot: Bot, state: 
         await bot.send_message(callback.from_user.id, SERVICE_UNAVAILABLE_TEXT)
         return
 
-    await state.update_data(pending_receipt_photo_id=None)
+    await state.update_data(pending_receipt_file_id=None, pending_receipt_is_document=None)
     await _process_receipt(
         bot,
         reply_chat_id=callback.from_user.id,
         from_user_id=callback.from_user.id,
         from_first_name=callback.from_user.first_name,
         from_username=callback.from_user.username,
-        photo_file_id=photo_file_id,
+        file_id=file_id,
+        is_document=is_document,
         order=order,
     )
 
