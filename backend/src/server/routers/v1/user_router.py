@@ -1,6 +1,6 @@
 from http import HTTPStatus
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from starlette.responses import JSONResponse
 
 from src.container import container
@@ -8,6 +8,8 @@ from src.server.dependencies import Caller, require_internal, require_user_or_in
 from src.services.static import create_message
 from src.services.user.interface import UserServiceI
 from src.services.user.schemas import UserCreate, UserResponse, UserUpdate
+
+_SUPPORTED_LANGS = {"ru", "uz"}
 
 user_tag = "Users"
 router = APIRouter(prefix="/users", tags=[user_tag])
@@ -37,6 +39,21 @@ async def update_user(
     user_service: UserServiceI = Depends(get_user_service),
 ) -> UserResponse:
     return await user_service.update(user_id, data)
+
+
+@router.patch("/me/language", response_model=UserResponse)
+async def set_my_language(
+    language: str,
+    caller: Caller = Depends(require_user_or_internal),
+    user_service: UserServiceI = Depends(get_user_service),
+) -> UserResponse:
+    # A Mini App user may only change their own language; the language set is
+    # restricted to what the UI supports.
+    if caller.user_id is None:
+        raise HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail="user_id required")
+    if language not in _SUPPORTED_LANGS:
+        raise HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail="Unsupported language")
+    return await user_service.update(caller.user_id, UserUpdate(language_code=language))
 
 
 @router.get("/get_user_by_id", response_model=UserResponse)

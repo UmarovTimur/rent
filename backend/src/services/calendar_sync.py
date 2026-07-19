@@ -8,9 +8,9 @@ configured — see settings/google_calendar.py.
 Only confirmed orders (in_progress/taken) get a calendar event; a 10-minute
 payment hold ("created") is deliberately not synced, so unpaid holds never
 clutter the calendar. The event title is prefixed with the current status
-("[Отдано]", "[Пауза]", "[Возвращён]", "[Закрыт]") so admins can tell them
-apart at a glance without opening each event; cancelled orders have theirs
-deleted instead.
+("[Отдано]", "[Пауза]", "[Возвращён]", "[Закрыт]") and colored per status
+(see _STATUS_COLOR_ID) so admins can tell them apart at a glance without
+opening each event; cancelled orders have theirs deleted instead.
 """
 
 import asyncio
@@ -31,6 +31,16 @@ logger = logging.getLogger(__name__)
 
 _SCOPES = ["https://www.googleapis.com/auth/calendar"]
 _TIMEZONE = "Asia/Tashkent"
+
+# Google Calendar's fixed event color palette (colorId 1-11) — picked semantically:
+# https://developers.google.com/calendar/api/v3/reference/colors/get
+_STATUS_COLOR_ID = {
+    "in_progress": "9",   # Blueberry — confirmed, holding the slot
+    "taken": "6",         # Tangerine — handed over to the client
+    "paused": "3",        # Grape — on hold
+    "returned": "10",     # Basil (green) — successful outcome
+    "completed": "11",    # Tomato (red) — closed unsuccessfully
+}
 
 _service = None  # module-level cache — built once, reused across calls
 
@@ -109,6 +119,7 @@ async def _sync(settings: GoogleCalendarSettings, session: AsyncSession, order: 
             return
         if order.status == "taken":
             body["summary"] = f"[Отдано] {body['summary']}"
+        body["colorId"] = _STATUS_COLOR_ID[order.status]
         if order.google_event_id:
             event_id = order.google_event_id
             await asyncio.to_thread(
@@ -133,6 +144,7 @@ async def _sync(settings: GoogleCalendarSettings, session: AsyncSession, order: 
             "returned": "[Возвращён] ",   # successful outcome — client returned the gear
         }[order.status]
         body["summary"] = f"{prefix}{body['summary']}"
+        body["colorId"] = _STATUS_COLOR_ID[order.status]
         event_id = order.google_event_id
         await asyncio.to_thread(
             lambda: service.events()
