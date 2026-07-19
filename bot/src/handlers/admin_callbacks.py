@@ -23,12 +23,14 @@ from src.config import (
     get_order_url,
     get_user_by_id_url,
 )
+from src.i18n import t
+from src.user_lang import fetch_user_language
 
 router = Router(name="admin_callbacks")
 logger = logging.getLogger(__name__)
 
 _ACTIVE_STATUSES = {"created", "in_progress", "taken"}
-_MAX_ORDERS = 20
+_PAGE_SIZE = 5
 
 _STATUS_LABEL = {
     "created": "🆕 Создан",
@@ -73,6 +75,17 @@ def _filter_keyboard() -> InlineKeyboardMarkup:
     builder.button(text="🔥 Активные",  callback_data="filter:active")
     builder.button(text="📋 Все",        callback_data="filter:all")
     builder.adjust(3, 3, 3)
+    return builder.as_markup()
+
+
+def _pagination_keyboard(status_filter: str, page: int, total_pages: int) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    if page > 0:
+        builder.button(text="⬅️ Назад", callback_data=f"page:{status_filter}:{page - 1}")
+    if page < total_pages - 1:
+        builder.button(text="Вперёд ➡️", callback_data=f"page:{status_filter}:{page + 1}")
+    builder.button(text="🔙 К фильтрам", callback_data="filter:menu")
+    builder.adjust(2, 1)
     return builder.as_markup()
 
 
@@ -131,10 +144,19 @@ def _format_order(order: dict) -> str:
     lines.append(f"💳 Оплата: {payment}")
     lines.append(f"💰 Итого: {fmt_price(order['total_price'])} сум")
 
+    items = order.get("items", [])
+    # One overall pickup/return window for the whole order — repeating it per
+    # line (every item shares the same trip dates) just added noise.
+    rental_starts = [i["rental_start"] for i in items if i.get("rental_start")]
+    rental_ends = [i["rental_end"] for i in items if i.get("rental_end")]
+    if rental_starts and rental_ends:
+        start = min(rental_starts)[:16].replace("T", " ")
+        end = max(rental_ends)[:16].replace("T", " ")
+        lines.append(f"📆 {start} — {end}")
+
     if order.get("comment"):
         lines.append(f"💬 {order['comment']}")
 
-    items = order.get("items", [])
     if items:
         lines.append("")
         lines.append("📦 <b>Состав:</b>")
@@ -142,12 +164,7 @@ def _format_order(order: dict) -> str:
             name = item.get("product_name") or f"Товар #{item['product_id']}"
             qty = item["quantity"]
             price = item["unit_price"]
-            line = f"  • {name} ×{qty} — {fmt_price(price * qty)} сум"
-            if item.get("rental_start") and item.get("rental_end"):
-                start = item["rental_start"][:16].replace("T", " ")
-                end = item["rental_end"][:16].replace("T", " ")
-                line += f"\n    📆 {start} — {end}"
-            lines.append(line)
+            lines.append(f"  • {name} ×{qty} — {fmt_price(price * qty)} сум")
 
     status_label = _STATUS_LABEL.get(order.get("status", ""), order.get("status", ""))
     lines.append(f"\nСтатус: {status_label}")
@@ -231,13 +248,14 @@ async def _apply_order_action(
     order_id: int,
     action: str,
     *,
-    client_text: str | None,
+    client_text_key: str | None,
     comment: str | None,
     reply_chat_id: int,
     admin_message_id: int | None,
 ) -> None:
-    """Patch the order's status, notify the client (if client_text is given,
-    with the admin's comment appended), and refresh the admin card in place.
+    """Patch the order's status, notify the client (if client_text_key is given,
+    translated to the client's language, with the admin's comment appended), and
+    refresh the admin card in place.
     """
     new_status = _ACTION_STATUS[action]
 
@@ -257,8 +275,9 @@ async def _apply_order_action(
                 return
             order = await resp.json()
 
-    if client_text:
-        text = client_text.format(order_id=order_id)
+    if client_text_key:
+        lang = await fetch_user_language(order["user_id"])
+        text = t(client_text_key, lang, order_id=order_id)
         if comment:
             text += f"\n\n💬 {comment}"
         try:
@@ -364,15 +383,15 @@ async def handle_order_action(callback: CallbackQuery, state: FSMContext) -> Non
         )
         return
 
-    direct_client_text = {
-        "approve": "✅ <b>Ваш заказ #{order_id} подтверждён!</b> Ждём вас.",
-        "return": "✅ <b>Заказ #{order_id} завершён.</b> Спасибо, что вернули снаряжение!",
+    direct_client_text_key = {
+        "approve": "order_approved",
+        "return": "order_returned",
     }.get(action)
 
     await _apply_order_action(
         order_id,
         action,
-        client_text=direct_client_text,
+        client_text_key=direct_client_text_key,
         comment=None,
         reply_chat_id=callback.message.chat.id,
         admin_message_id=callback.message.message_id,
@@ -396,16 +415,16 @@ async def handle_order_action_comment(message: Message, state: FSMContext) -> No
     if comment == "-":
         comment = None
 
-    client_text = {
-        "pause": "⏸ <b>Ваш заказ #{order_id} приостановлен.</b>",
-        "close": "🔒 <b>Ваш заказ #{order_id} закрыт.</b>",
-        "approve": "▶️ <b>Ваш заказ #{order_id} возобновлён.</b>",
+    client_text_key = {
+        "pause": "order_paused_client",
+        "close": "order_closed_client",
+        "approve": "order_resumed_client",
     }.get(action)
 
     await _apply_order_action(
         order_id,
         action,
-        client_text=client_text,
+        client_text_key=client_text_key,
         comment=comment,
         reply_chat_id=admin_chat_id or message.chat.id,
         admin_message_id=admin_message_id,
@@ -426,16 +445,16 @@ def _pluralize_orders(n: int) -> str:
     return f"{n} заказов"
 
 
-@router.callback_query(F.data.startswith("filter:"))
-async def handle_filter(callback: CallbackQuery) -> None:
-    user_id = callback.from_user.id if callback.from_user else None
-    if not user_id or not await _is_admin(user_id):
-        await callback.answer("Нет доступа.", show_alert=True)
+# Order-card message ids from the currently displayed page, keyed by the
+# admin's chat id — so paginating can delete the previous page's cards before
+# sending the next one, instead of piling up messages forever.
+_LAST_PAGE_CARD_IDS: dict[int, list[int]] = {}
+
+
+async def _render_orders_page(callback: CallbackQuery, status_filter: str, page: int) -> None:
+    if not callback.message:
         return
-
-    await callback.answer()
-
-    status_filter = callback.data.split(":")[1]
+    chat_id = callback.message.chat.id
 
     async with aiohttp.ClientSession(timeout=REQUEST_TIMEOUT) as session:
         async with session.get(get_all_orders_url, headers=INTERNAL_HEADERS) as resp:
@@ -456,26 +475,73 @@ async def handle_filter(callback: CallbackQuery) -> None:
 
     filtered.sort(key=lambda o: o.get("order_date", ""), reverse=True)
     total = len(filtered)
-    shown = filtered[:_MAX_ORDERS]
+    total_pages = max(1, (total + _PAGE_SIZE - 1) // _PAGE_SIZE)
+    page = max(0, min(page, total_pages - 1))
+    shown = filtered[page * _PAGE_SIZE : page * _PAGE_SIZE + _PAGE_SIZE]
+
+    # Clear the previous page's order cards before rendering the new one.
+    for message_id in _LAST_PAGE_CARD_IDS.pop(chat_id, []):
+        try:
+            await bot.delete_message(chat_id, message_id)
+        except Exception:
+            pass
 
     if not shown:
-        await callback.message.edit_text(
-            f"📋 {label}: заказов нет.",
-            reply_markup=_filter_keyboard(),
-        )
+        await callback.message.edit_text(f"📋 {label}: заказов нет.", reply_markup=_filter_keyboard())
         return
 
-    suffix = f" (показаны последние {_MAX_ORDERS})" if total > _MAX_ORDERS else ""
+    page_line = f" — стр. {page + 1}/{total_pages}" if total_pages > 1 else ""
     await callback.message.edit_text(
-        f"📋 {label}: {_pluralize_orders(total)}{suffix}",
-        reply_markup=_filter_keyboard(),
+        f"📋 {label}: {_pluralize_orders(total)}{page_line}",
+        reply_markup=_pagination_keyboard(status_filter, page, total_pages),
     )
 
+    card_ids = []
     for order in shown:
         text = _format_order(order)
         keyboard = _order_keyboard(order["order_id"], order["status"])
-        await callback.message.answer(text, reply_markup=keyboard)
+        sent = await callback.message.answer(text, reply_markup=keyboard)
+        card_ids.append(sent.message_id)
         await asyncio.sleep(0.05)
+    _LAST_PAGE_CARD_IDS[chat_id] = card_ids
+
+
+@router.callback_query(F.data == "filter:menu")
+async def handle_filter_menu(callback: CallbackQuery) -> None:
+    user_id = callback.from_user.id if callback.from_user else None
+    if not user_id or not await _is_admin(user_id):
+        await callback.answer("Нет доступа.", show_alert=True)
+        return
+    await callback.answer()
+    if callback.message:
+        for message_id in _LAST_PAGE_CARD_IDS.pop(callback.message.chat.id, []):
+            try:
+                await bot.delete_message(callback.message.chat.id, message_id)
+            except Exception:
+                pass
+        await callback.message.edit_text("📋 Выберите фильтр заказов:", reply_markup=_filter_keyboard())
+
+
+@router.callback_query(F.data.startswith("filter:"))
+async def handle_filter(callback: CallbackQuery) -> None:
+    user_id = callback.from_user.id if callback.from_user else None
+    if not user_id or not await _is_admin(user_id):
+        await callback.answer("Нет доступа.", show_alert=True)
+        return
+    await callback.answer()
+    status_filter = callback.data.split(":")[1]
+    await _render_orders_page(callback, status_filter, page=0)
+
+
+@router.callback_query(F.data.startswith("page:"))
+async def handle_page(callback: CallbackQuery) -> None:
+    user_id = callback.from_user.id if callback.from_user else None
+    if not user_id or not await _is_admin(user_id):
+        await callback.answer("Нет доступа.", show_alert=True)
+        return
+    await callback.answer()
+    _, status_filter, page_str = callback.data.split(":")
+    await _render_orders_page(callback, status_filter, page=int(page_str))
 
 
 # ─── /orders command ─────────────────────────────────────────────────────────

@@ -1,7 +1,10 @@
-"""Registration flow: collect phone (via contact button) and name on first /start.
+"""Registration flow: pick language, then collect phone (via contact button)
+and name on first /start.
 
 The collected data lands on the backend User record and is auto-filled into
 the Mini App order form (frontend OrderContext prefills first_name/phone_number).
+The chosen language (User.language_code) drives all client-facing bot text and
+the Mini App interface language.
 """
 
 import asyncio
@@ -14,47 +17,41 @@ from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import (
+    CallbackQuery,
+    InlineKeyboardMarkup,
     KeyboardButton,
     Message,
     ReplyKeyboardMarkup,
     ReplyKeyboardRemove,
 )
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from src.config import INTERNAL_HEADERS, REQUEST_TIMEOUT, update_user_url
+from src.i18n import normalize_lang, t
 
 router = Router(name="registration")
 logger = logging.getLogger(__name__)
-
-SERVICE_UNAVAILABLE_TEXT = "Сервис временно недоступен. Пожалуйста, попробуйте позже."
-PHONE_PROMPT_TEXT = (
-    "Чтобы оформлять заказы, нам нужен ваш номер телефона.\n"
-    "Нажмите кнопку ниже, чтобы поделиться контактом 👇\n\n"
-    "Или просто отправьте номер сообщением, например: +998 90 123 45 67"
-)
-PHONE_INVALID_TEXT = (
-    "Не похоже на номер телефона 🤔\n"
-    "Нажмите кнопку «📱 Отправить номер» или пришлите номер в формате +998 90 123 45 67."
-)
-FOREIGN_CONTACT_TEXT = "Пожалуйста, отправьте свой собственный контакт кнопкой ниже."
-NAME_PROMPT_TEXT = "Отлично! Как к вам обращаться? Напишите имя или выберите вариант ниже 👇"
-NAME_INVALID_TEXT = "Пожалуйста, отправьте имя обычным текстовым сообщением."
-DONE_TEXT = (
-    "✅ Регистрация завершена!\n\n"
-    "Нажмите на кнопку «Магазин», чтобы открыть мини-приложение — "
-    "имя и телефон подставятся в заказ автоматически."
-)
 
 _PHONE_RE = re.compile(r"^\+?\d{9,15}$")
 
 
 class Registration(StatesGroup):
+    waiting_language = State()
     waiting_phone = State()
     waiting_name = State()
 
 
-def phone_request_keyboard() -> ReplyKeyboardMarkup:
+def language_keyboard() -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.button(text="🇷🇺 Русский", callback_data="setlang:ru")
+    builder.button(text="🇺🇿 O‘zbekcha", callback_data="setlang:uz")
+    builder.adjust(2)
+    return builder.as_markup()
+
+
+def phone_request_keyboard(lang: str) -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
-        keyboard=[[KeyboardButton(text="📱 Отправить номер", request_contact=True)]],
+        keyboard=[[KeyboardButton(text=t("phone_button", lang), request_contact=True)]],
         resize_keyboard=True,
         one_time_keyboard=True,
     )
@@ -98,42 +95,82 @@ async def _patch_user(user_id: int, payload: dict) -> bool:
         return False
 
 
+async def _lang(state: FSMContext) -> str:
+    data = await state.get_data()
+    return normalize_lang(data.get("lang"))
+
+
 async def start_registration(message: Message, state: FSMContext) -> None:
-    """Entry point, called from /start when the user has no phone on record."""
-    await state.set_state(Registration.waiting_phone)
-    await message.answer(PHONE_PROMPT_TEXT, reply_markup=phone_request_keyboard())
+    """Entry point, called from /start when the user has no phone on record.
+
+    Begins by asking for a language (bilingual prompt) — everything after is
+    shown in the chosen language.
+    """
+    await state.set_state(Registration.waiting_language)
+    await message.answer(t("choose_language", None), reply_markup=language_keyboard())
 
 
-async def _save_phone_and_ask_name(
-    message: Message, state: FSMContext, phone: str
-) -> None:
+@router.callback_query(F.data.startswith("setlang:"))
+async def handle_language_choice(callback: CallbackQuery, state: FSMContext) -> None:
+    if not callback.from_user or not callback.data:
+        return
+    lang = normalize_lang(callback.data.split(":")[1])
+    await callback.answer()
+
+    await _patch_user(callback.from_user.id, {"language_code": lang})
+    await state.update_data(lang=lang)
+
+    if isinstance(callback.message, Message):
+        try:
+            await callback.message.edit_reply_markup(reply_markup=None)
+        except Exception:
+            pass
+        await callback.message.answer(t("language_set", lang))
+
+    # Standalone /language change (user already registered) leaves no pending
+    # registration state — only continue the flow when we're mid-registration.
+    current = await state.get_state()
+    if current == Registration.waiting_language.state and isinstance(callback.message, Message):
+        await state.set_state(Registration.waiting_phone)
+        await callback.message.answer(t("phone_prompt", lang), reply_markup=phone_request_keyboard(lang))
+
+
+async def _save_phone_and_ask_name(message: Message, state: FSMContext, phone: str) -> None:
     if not message.from_user:
         return
+    lang = await _lang(state)
 
     if not await _patch_user(message.from_user.id, {"phone_number": phone}):
-        await message.answer(SERVICE_UNAVAILABLE_TEXT)
+        await message.answer(t("service_unavailable", lang))
         return
 
     await state.set_state(Registration.waiting_name)
     await message.answer(
-        NAME_PROMPT_TEXT,
+        t("name_prompt", lang),
         reply_markup=_name_suggestion_keyboard(message.from_user.first_name),
     )
+
+
+@router.message(Registration.waiting_language, ~F.text.startswith("/"))
+async def handle_language_text(message: Message) -> None:
+    # The user typed instead of tapping a language button — re-prompt.
+    await message.answer(t("choose_language", None), reply_markup=language_keyboard())
 
 
 @router.message(Registration.waiting_phone, F.contact)
 async def handle_contact(message: Message, state: FSMContext) -> None:
     if not message.from_user or not message.contact:
         return
+    lang = await _lang(state)
 
     # Only the user's own contact counts as their phone number.
     if message.contact.user_id != message.from_user.id:
-        await message.answer(FOREIGN_CONTACT_TEXT, reply_markup=phone_request_keyboard())
+        await message.answer(t("foreign_contact", lang), reply_markup=phone_request_keyboard(lang))
         return
 
     phone = normalize_phone(message.contact.phone_number or "")
     if not phone:
-        await message.answer(PHONE_INVALID_TEXT, reply_markup=phone_request_keyboard())
+        await message.answer(t("phone_invalid", lang), reply_markup=phone_request_keyboard(lang))
         return
 
     await _save_phone_and_ask_name(message, state, phone)
@@ -144,38 +181,42 @@ async def handle_contact(message: Message, state: FSMContext) -> None:
 # otherwise stop propagation).
 @router.message(Registration.waiting_phone, F.text, ~F.text.startswith("/"))
 async def handle_phone_text(message: Message, state: FSMContext) -> None:
+    lang = await _lang(state)
     phone = normalize_phone(message.text or "")
     if not phone:
-        await message.answer(PHONE_INVALID_TEXT, reply_markup=phone_request_keyboard())
+        await message.answer(t("phone_invalid", lang), reply_markup=phone_request_keyboard(lang))
         return
 
     await _save_phone_and_ask_name(message, state, phone)
 
 
 @router.message(Registration.waiting_phone, ~F.text)
-async def handle_phone_other(message: Message) -> None:
+async def handle_phone_other(message: Message, state: FSMContext) -> None:
+    lang = await _lang(state)
     # Contact messages are caught by handle_contact above (registration order).
-    await message.answer(PHONE_INVALID_TEXT, reply_markup=phone_request_keyboard())
+    await message.answer(t("phone_invalid", lang), reply_markup=phone_request_keyboard(lang))
 
 
 @router.message(Registration.waiting_name, F.text, ~F.text.startswith("/"))
 async def handle_name(message: Message, state: FSMContext) -> None:
     if not message.from_user:
         return
+    lang = await _lang(state)
 
     name = (message.text or "").strip()
     if not name or len(name) > 100:
-        await message.answer(NAME_INVALID_TEXT)
+        await message.answer(t("name_invalid", lang))
         return
 
     if not await _patch_user(message.from_user.id, {"first_name": name}):
-        await message.answer(SERVICE_UNAVAILABLE_TEXT)
+        await message.answer(t("service_unavailable", lang))
         return
 
     await state.clear()
-    await message.answer(DONE_TEXT, reply_markup=ReplyKeyboardRemove())
+    await message.answer(t("registration_done", lang), reply_markup=ReplyKeyboardRemove())
 
 
 @router.message(Registration.waiting_name, ~F.text)
-async def handle_name_other(message: Message) -> None:
-    await message.answer(NAME_INVALID_TEXT)
+async def handle_name_other(message: Message, state: FSMContext) -> None:
+    lang = await _lang(state)
+    await message.answer(t("name_invalid", lang))

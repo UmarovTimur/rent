@@ -34,7 +34,16 @@ INTERNAL_HEADERS = {"X-Internal-Token": INTERNAL_API_TOKEN} if INTERNAL_API_TOKE
 
 ADMIN_CHAT_ID = int(getenv("ADMIN_CHAT_ID") or 0)
 PAYMENT_CARD_NUMBER = getenv("PAYMENT_CARD_NUMBER", "")
+# Digits only (spaces stripped) — this is what clients see in a tappable <code>
+# block, so it copies straight into a bank app's transfer field. Use this
+# everywhere the card is shown; don't re-strip spaces at each call site.
+CARD_NUMBER_PLAIN = PAYMENT_CARD_NUMBER.replace(" ", "")
 DEPOSIT_AMOUNT = int(getenv("DEPOSIT_AMOUNT", 100000))
+
+# Pickup point sent to the client (Telegram location pin) after a confirmed
+# receipt. One source of truth so the coordinates aren't scattered as literals.
+PICKUP_LATITUDE = 41.271367
+PICKUP_LONGITUDE = 69.228406
 FRONTEND_URL = (getenv("FRONTEND_URL") or "").strip().rstrip("/")
 admin_calendar_url = f"{FRONTEND_URL}/app/admin" if FRONTEND_URL else ""
 # DEPOSIT_PERCENT = int(getenv("DEPOSIT_PERCENT", 20))  # процент от суммы заказа

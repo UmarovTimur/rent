@@ -3,9 +3,24 @@ from aiohttp import web
 import asyncio
 import logging
 import os
+from datetime import datetime, timedelta
 from http import HTTPStatus
 
 import aiohttp
+
+from src.config import (
+    ADMIN_CHAT_ID,
+    CARD_NUMBER_PLAIN,
+    DEPOSIT_AMOUNT,
+    INTERNAL_API_TOKEN,
+    INTERNAL_HEADERS,
+    REQUEST_TIMEOUT,
+    bot,
+    fmt_price,
+    get_order_url,
+)
+from src.i18n import status_label, t
+from src.user_lang import fetch_user_language
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +35,6 @@ def _authorized(request: web.Request) -> bool:
     documented as required in .env.example; an unset token means misconfiguration,
     not "no auth needed".
     """
-    from src.config import INTERNAL_API_TOKEN
     if not INTERNAL_API_TOKEN:
         return False
     return request.headers.get("X-Internal-Token") == INTERNAL_API_TOKEN
@@ -106,7 +120,6 @@ async def _handle_hold_expired_cancelled(request: web.Request) -> web.Response:
 
 
 async def _fetch_order(order_id: int) -> dict | None:
-    from src.config import INTERNAL_HEADERS, REQUEST_TIMEOUT, get_order_url
     try:
         async with aiohttp.ClientSession(timeout=REQUEST_TIMEOUT) as session:
             async with session.get(f"{get_order_url}/{order_id}", headers=INTERNAL_HEADERS) as resp:
@@ -124,11 +137,10 @@ _SUPPORT_USERNAME = "@Status_3"
 
 
 async def _notify_client_created(order_id: int) -> None:
-    from src.config import DEPOSIT_AMOUNT, PAYMENT_CARD_NUMBER, bot, fmt_price
-    from datetime import datetime, timedelta, timezone
     order = await _fetch_order(order_id)
     if not order:
         return
+    lang = await fetch_user_language(order["user_id"])
 
     # Rental window across all items (earliest start / latest end) → pickup
     # and return datetimes, displayed in local Uzbekistan time (UTC+5).
@@ -137,27 +149,23 @@ async def _notify_client_created(order_id: int) -> None:
     pickup_line = ""
     if rental_starts:
         dt = datetime.fromisoformat(min(rental_starts).replace("Z", "+00:00")) + timedelta(hours=5)
-        pickup_line = f"📅 Дата получения: <b>{dt.strftime('%d.%m.%Y в %H:%M')}</b>\n"
+        pickup_line = t("pickup_date", lang, dt=dt.strftime("%d.%m.%Y %H:%M"))
     return_line = ""
     if rental_ends:
         dt = datetime.fromisoformat(max(rental_ends).replace("Z", "+00:00")) + timedelta(hours=5)
-        return_line = f"📆 Дата возврата: <b>{dt.strftime('%d.%m.%Y в %H:%M')}</b>\n"
+        return_line = t("return_date", lang, dt=dt.strftime("%d.%m.%Y %H:%M"))
 
-    address = order.get("address") or "уточняется у менеджера"
-    # Spaces stripped so tapping the <code> block copies a value that pastes
-    # cleanly into a bank app's transfer field.
-    card_number = (PAYMENT_CARD_NUMBER or "").replace(" ", "")
-    deposit = DEPOSIT_AMOUNT
+    address = order.get("address") or t("address_pending", lang)
     text = (
-        f"⭕️ <b>Ваш заказ #{order_id} создан!</b>\n\n"
-        f"{pickup_line}"
-        f"{return_line}"
-        f"📍 Адрес выдачи: <b>{address}</b>\n\n"
-        f"❕Для подтверждения переведите предоплату <b>{fmt_price(deposit)} сум</b> на карту:\n\n"
-        f"💳 <code>{card_number}</code>\n\n"
-        f"❗️ После оплаты отправьте фото чека в этот чат\n\n"
-        f"👨‍💼 Менеджер: {_MANAGER_USERNAME}\n"
-        f"🛠 Поддержка: {_SUPPORT_USERNAME}"
+        t("order_created", lang, order_id=order_id)
+        + pickup_line
+        + return_line
+        + t("pickup_address", lang, address=address)
+        + t("deposit_instructions", lang, deposit=fmt_price(DEPOSIT_AMOUNT))
+        + t("deposit_card", lang, card_number=CARD_NUMBER_PLAIN)
+        + t("send_receipt_hint", lang)
+        + t("manager_contact", lang, manager=_MANAGER_USERNAME)
+        + t("support_contact", lang, support=_SUPPORT_USERNAME)
     )
     try:
         await bot.send_message(order["user_id"], text)
@@ -166,12 +174,11 @@ async def _notify_client_created(order_id: int) -> None:
 
 
 async def _notify_pickup(order_id: int) -> None:
-    from src.config import ADMIN_CHAT_ID, bot
     order = await _fetch_order(order_id)
     if not order:
         return
 
-    client_text = f"⏰ <b>Напоминание:</b> через ~2 часа вы должны забрать заказ <b>#{order_id}</b>."
+    client_text = t("pickup_reminder", await fetch_user_language(order["user_id"]), order_id=order_id)
     admin_text = (
         f"⏰ <b>Напоминание о выдаче заказа #{order_id}</b>\n"
         f"👤 {order.get('first_name', '—')} | 📞 {order.get('phone', '—')}\n"
@@ -189,12 +196,11 @@ async def _notify_pickup(order_id: int) -> None:
 
 
 async def _notify_return(order_id: int) -> None:
-    from src.config import ADMIN_CHAT_ID, bot
     order = await _fetch_order(order_id)
     if not order:
         return
 
-    client_text = f"⏰ <b>Напоминание:</b> через ~2 часа вы должны вернуть заказ <b>#{order_id}</b>."
+    client_text = t("return_reminder", await fetch_user_language(order["user_id"]), order_id=order_id)
     admin_text = (
         f"⏰ <b>Напоминание о возврате заказа #{order_id}</b>\n"
         f"👤 {order.get('first_name', '—')} | 📞 {order.get('phone', '—')}\n"
@@ -212,14 +218,13 @@ async def _notify_return(order_id: int) -> None:
 
 
 async def _notify_status_changed(order_id: int) -> None:
-    from src.config import bot
-    from src.handlers.admin_callbacks import _STATUS_LABEL
     order = await _fetch_order(order_id)
     if not order:
         return
 
-    status_label = _STATUS_LABEL.get(order.get("status", ""), order.get("status", ""))
-    text = f"ℹ️ <b>Статус вашего заказа #{order_id} изменён:</b> {status_label}"
+    lang = await fetch_user_language(order["user_id"])
+    label = status_label(order.get("status", ""), lang)
+    text = t("status_changed", lang, order_id=order_id, status=label)
     try:
         await bot.send_message(order["user_id"], text)
     except Exception:
@@ -227,16 +232,11 @@ async def _notify_status_changed(order_id: int) -> None:
 
 
 async def _notify_hold_expired_cancelled(order_id: int) -> None:
-    from src.config import ADMIN_CHAT_ID, bot
     order = await _fetch_order(order_id)
     if not order:
         return
 
-    client_text = (
-        f"❌ <b>Заказ #{order_id} отменён.</b>\n\n"
-        f"Мы не получили подтверждение оплаты вовремя, и эти даты забронировал другой клиент.\n"
-        f"Если снаряжение всё ещё нужно — оформите новый заказ на актуальные даты."
-    )
+    client_text = t("hold_expired", await fetch_user_language(order["user_id"]), order_id=order_id)
     try:
         await bot.send_message(order["user_id"], client_text)
     except Exception:

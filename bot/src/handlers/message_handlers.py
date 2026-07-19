@@ -11,7 +11,10 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from src.config import (
     ADMIN_CHAT_ID,
+    CARD_NUMBER_PLAIN,
     INTERNAL_HEADERS,
+    PICKUP_LATITUDE,
+    PICKUP_LONGITUDE,
     REQUEST_TIMEOUT,
     bot,
     change_status_url,
@@ -22,11 +25,15 @@ from src.config import (
     get_user_by_id_url,
 )
 
+from src.i18n import normalize_lang, t
+from src.user_lang import fetch_user_language
+
 router = Router(name="message_handlers")
 logger = logging.getLogger(__name__)
-SERVICE_UNAVAILABLE_TEXT = "Сервис временно недоступен. Пожалуйста, попробуйте позже."
-UNEXPECTED_ERROR_TEXT = "Произошла непредвиденная ошибка. Пожалуйста, попробуйте позже."
-WELCOME_TEXT = "Добро пожаловать! Нажмите на кнопку «Магазин», чтобы открыть мини-приложение."
+# Pre-language fallbacks: used only in error paths before we know the user's
+# chosen language (defaults to Russian).
+SERVICE_UNAVAILABLE_TEXT = t("service_unavailable", None)
+UNEXPECTED_ERROR_TEXT = t("unexpected_error", None)
 
 
 @router.message(Command("start"))
@@ -128,7 +135,15 @@ async def send_welcome(message: Message, state: FSMContext) -> None:
         return
 
     await state.clear()
-    await message.answer(WELCOME_TEXT)
+    user_lang = normalize_lang(user_payload.get("language_code"))
+    await message.answer(t("welcome", user_lang))
+
+
+@router.message(Command("language"))
+async def change_language(message: Message) -> None:
+    from src.handlers.registration import language_keyboard
+
+    await message.answer(t("choose_language", None), reply_markup=language_keyboard())
 
 
 async def _process_receipt(
@@ -186,7 +201,8 @@ async def _process_receipt(
         except Exception:
             logger.exception("Failed to forward receipt to admin chat %s", ADMIN_CHAT_ID)
 
-    await bot.send_message(reply_chat_id, "Чек получен, проверяем оплату...")
+    lang = await fetch_user_language(from_user_id)
+    await bot.send_message(reply_chat_id, t("receipt_received", lang))
     try:
         async with aiohttp.ClientSession(timeout=REQUEST_TIMEOUT) as session:
             async with session.patch(
@@ -197,13 +213,18 @@ async def _process_receipt(
                 confirmed = resp.status in {HTTPStatus.NO_CONTENT, HTTPStatus.OK}
 
         if confirmed:
-            await bot.send_message(
-                reply_chat_id, f"✅ Оплата по заказу #{order_id} подтверждена, бронь закреплена за вами."
-            )
+            await bot.send_message(reply_chat_id, t("payment_confirmed", lang, order_id=order_id))
             try:
-                await bot.send_location(reply_chat_id, latitude=41.271367, longitude=69.228406)
+                await bot.send_message(reply_chat_id, t("pickup_location", lang))
+                await bot.send_location(reply_chat_id, latitude=PICKUP_LATITUDE, longitude=PICKUP_LONGITUDE)
             except Exception:
                 logger.exception("Failed to send pickup location to chat %s", reply_chat_id)
+
+            if CARD_NUMBER_PLAIN:
+                try:
+                    await bot.send_message(reply_chat_id, t("card_for_booking", lang, card_number=CARD_NUMBER_PLAIN))
+                except Exception:
+                    logger.exception("Failed to send card number reminder to chat %s", reply_chat_id)
         else:
             async with aiohttp.ClientSession(timeout=REQUEST_TIMEOUT) as session:
                 async with session.patch(
@@ -212,11 +233,7 @@ async def _process_receipt(
                     headers=INTERNAL_HEADERS,
                 ):
                     pass
-            await bot.send_message(
-                reply_chat_id,
-                f"❌ К сожалению, эти даты по заказу #{order_id} уже забронировал другой клиент. "
-                f"Заказ отменён — оформите новый на актуальные даты, если снаряжение всё ещё нужно.",
-            )
+            await bot.send_message(reply_chat_id, t("dates_taken_canceled", lang, order_id=order_id))
     except (aiohttp.ClientError, asyncio.TimeoutError):
         logger.exception("Failed to auto-confirm payment for order %s", order_id)
 
@@ -228,6 +245,7 @@ async def _handle_receipt_upload(
         return
 
     user_id = message.from_user.id
+    lang = await fetch_user_language(user_id)
 
     try:
         async with aiohttp.ClientSession(timeout=REQUEST_TIMEOUT) as session:
@@ -235,16 +253,16 @@ async def _handle_receipt_upload(
                 get_all_orders_url, params={"user_id": user_id}, headers=INTERNAL_HEADERS
             ) as resp:
                 if resp.status != HTTPStatus.OK:
-                    await message.answer(SERVICE_UNAVAILABLE_TEXT)
+                    await message.answer(t("service_unavailable", lang))
                     return
                 orders: list[dict] = await resp.json()
     except (aiohttp.ClientError, asyncio.TimeoutError):
         logger.exception("Backend request failed fetching orders for user_id=%s", user_id)
-        await message.answer(SERVICE_UNAVAILABLE_TEXT)
+        await message.answer(t("service_unavailable", lang))
         return
     except Exception:
         logger.exception("Unexpected error fetching orders for user_id=%s", user_id)
-        await message.answer(UNEXPECTED_ERROR_TEXT)
+        await message.answer(t("unexpected_error", lang))
         return
 
     pending = sorted(
@@ -254,7 +272,7 @@ async def _handle_receipt_upload(
     )
 
     if not pending:
-        await message.answer("У вас нет заказов, ожидающих подтверждения оплаты.")
+        await message.answer(t("no_pending_orders", lang))
         return
 
     if len(pending) == 1:
@@ -281,10 +299,7 @@ async def _handle_receipt_upload(
             callback_data=f"receipt_order:{o['order_id']}",
         )
     builder.adjust(1)
-    await message.answer(
-        "У вас несколько заказов, ожидающих оплаты. К какому из них относится этот чек?",
-        reply_markup=builder.as_markup(),
-    )
+    await message.answer(t("receipt_which_order", lang), reply_markup=builder.as_markup())
 
 
 @router.message(F.photo)
@@ -307,12 +322,13 @@ async def handle_receipt_order_choice(callback: CallbackQuery, bot: Bot, state: 
         return
 
     order_id = int(callback.data.split(":")[1])
+    lang = await fetch_user_language(callback.from_user.id)
     data = await state.get_data()
     file_id = data.get("pending_receipt_file_id")
     is_document = bool(data.get("pending_receipt_is_document"))
 
     if not file_id:
-        await callback.answer("Чек не найден, отправьте его ещё раз.", show_alert=True)
+        await callback.answer(t("receipt_not_found", lang), show_alert=True)
         return
 
     await callback.answer()
@@ -326,12 +342,12 @@ async def handle_receipt_order_choice(callback: CallbackQuery, bot: Bot, state: 
         async with aiohttp.ClientSession(timeout=REQUEST_TIMEOUT) as session:
             async with session.get(f"{get_order_url}/{order_id}", headers=INTERNAL_HEADERS) as resp:
                 if resp.status != HTTPStatus.OK:
-                    await bot.send_message(callback.from_user.id, SERVICE_UNAVAILABLE_TEXT)
+                    await bot.send_message(callback.from_user.id, t("service_unavailable", lang))
                     return
                 order = await resp.json()
     except (aiohttp.ClientError, asyncio.TimeoutError):
         logger.exception("Failed to fetch order %s for receipt choice", order_id)
-        await bot.send_message(callback.from_user.id, SERVICE_UNAVAILABLE_TEXT)
+        await bot.send_message(callback.from_user.id, t("service_unavailable", lang))
         return
 
     await state.update_data(pending_receipt_file_id=None, pending_receipt_is_document=None)
