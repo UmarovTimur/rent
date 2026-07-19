@@ -7,6 +7,7 @@ export interface User {
     username?: string
     phone_number?: string
     address?: string
+    language_code?: string | null
     is_admin: boolean
     coins: number
 }
@@ -71,5 +72,14 @@ export const UserService = {
             console.error('Error fetching order history:', error)
             throw error
         }
+    },
+
+    setLanguage: async (language: 'ru' | 'uz'): Promise<User> => {
+        // Auth (initData) is attached by the axios interceptor; the backend
+        // derives the caller and updates only their own language_code.
+        const response = await axios.patch<User>(
+            `${API_BASE_URL}api/v1/users/me/language?language=${language}`
+        )
+        return response.data
     },
 }

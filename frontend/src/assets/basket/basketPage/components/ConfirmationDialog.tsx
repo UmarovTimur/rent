@@ -1,5 +1,6 @@
 import { Dialog, Text, Button, Flex } from '@chakra-ui/react'
 import { ReactNode } from 'react'
+import { useTranslation } from '@/i18n/LanguageContext'
 
 type ConfirmationDialogProps = {
     isOpen: boolean
@@ -17,9 +18,10 @@ export default function ConfirmationDialog({
     onConfirm,
     title,
     message,
-    confirmLabel = 'Удалить',
+    confirmLabel,
     confirmColor = 'red.500',
 }: ConfirmationDialogProps) {
+    const { t } = useTranslation()
     return (
         <Dialog.Root open={isOpen} onOpenChange={onClose} placement="center">
             <Dialog.Backdrop bg="back/90" backdropFilter="blur(8px)" />
@@ -65,7 +67,7 @@ export default function ConfirmationDialog({
                                 fontWeight="700"
                                 fontSize="md"
                             >
-                                Отмена
+                                {t('cancel')}
                             </Button>
                             <Button
                                 flex="1"
@@ -80,7 +82,7 @@ export default function ConfirmationDialog({
                                 fontWeight="700"
                                 fontSize="md"
                             >
-                                {confirmLabel}
+                                {confirmLabel ?? t('remove')}
                             </Button>
                         </Flex>
                     </Dialog.Footer>

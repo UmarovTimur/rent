@@ -28,6 +28,9 @@ const config = defineConfig({
             colors: {
                 'token-accent': { value: '#fccf4c' },
                 'token-black': { value: '#151613' },
+                // Darker than the page background (token-black) — used for the
+                // "closed/unsuccessful" order badge so it reads as de-emphasized.
+                'token-darker': { value: '#050604' },
                 'token-second-black': { value: '#242522' },
                 'token-black-card': { value: '#1D1E1C' },
                 'token-white': { value: '#F5FFF7' },
@@ -65,6 +68,14 @@ const config = defineConfig({
                     value: {
                         base: '{colors.token-white-card}',
                         _dark: '{colors.token-black-card}',
+                    },
+                },
+                // Background for the "closed (unsuccessful)" order badge — dark,
+                // and darker than the page background in dark mode.
+                closed: {
+                    value: {
+                        base: '{colors.token-black}',
+                        _dark: '{colors.token-darker}',
                     },
                 },
             },

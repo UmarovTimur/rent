@@ -1,6 +1,7 @@
 import { Flex, Text } from '@chakra-ui/react'
 import { useEffect, useState } from 'react'
 import { TASHKENT_TIMEZONE } from '@/utils/rental'
+import { useTranslation } from '@/i18n/LanguageContext'
 
 const timeFormatter = new Intl.DateTimeFormat('ru-RU', {
     hour: '2-digit',
@@ -12,6 +13,7 @@ const timeFormatter = new Intl.DateTimeFormat('ru-RU', {
 
 export default function TashkentClock() {
     const [now, setNow] = useState(() => new Date())
+    const { t } = useTranslation()
 
     useEffect(() => {
         // Re-render right after each minute boundary so the clock never lags.
@@ -34,10 +36,10 @@ export default function TashkentClock() {
             h="hb"
             alignItems="center"
             gap="6px"
-            title="Все даты и время аренды — по Ташкенту"
+            title={t('clockTooltip')}
         >
             <Text fontSize="xs" opacity={0.7} color="text">
-                Ташкент
+                {t('clockCity')}
             </Text>
             <Text fontSize="xs" fontWeight="700" color="text">
                 {timeFormatter.format(now)}

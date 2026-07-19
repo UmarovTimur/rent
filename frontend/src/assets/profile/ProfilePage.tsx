@@ -21,6 +21,7 @@ import { formatPriceK } from '@/utils/price'
 import axios from 'axios'
 import API_BASE_URL from '@/config'
 import ConfirmationDialog from '@/assets/basket/basketPage/components/ConfirmationDialog'
+import { useTranslation } from '@/i18n/LanguageContext'
 
 const cisDateFormatter = new Intl.DateTimeFormat('ru-RU', {
     day: '2-digit',
@@ -39,6 +40,7 @@ const formatRentalRange = (start?: string | null, end?: string | null) => {
 export default function ProfilePage() {
     const { onClose } = useDrawer()
     const { user, orderHistory, loading } = useUserContext()
+    const { t, lang, setLang } = useTranslation()
     const isWebUser = Boolean(localStorage.getItem('auth_token'))
 
     const handleLogout = () => {
@@ -51,23 +53,14 @@ export default function ProfilePage() {
             const date = new Date(dateString)
             return format(date, 'dd.MM.yyyy HH:mm', { locale: ru })
         } catch {
-            return 'Дата неизвестна'
+            return t('dateUnknown')
         }
     }
 
     const translateStatus = (status: string) => {
         // Simplified client-facing wording — the client doesn't need to know
         // internal states like "paused", just where their order stands.
-        const statusMap: Record<string, string> = {
-            created: 'В процессе',
-            in_progress: 'Одобрен',
-            taken: 'У клиента',
-            paused: 'Одобрен',
-            returned: 'Завершён',
-            completed: 'Завершён',
-            canceled: 'Отменён',
-        }
-        return statusMap[status] || status
+        return t(`status_${status}`)
     }
 
     const statusColor = (status: string) => {
@@ -76,19 +69,19 @@ export default function ProfilePage() {
             in_progress: 'green.500',
             paused: 'purple.500',
             taken: 'blue.500',
-            returned: 'green.600',
-            completed: 'gray.500',
+            // Successful finish ("Завершён") → grey; unsuccessful ("Закрыт") →
+            // dark badge (darker than the page background), see theme `closed`.
+            returned: 'gray.500',
+            completed: 'closed',
             canceled: 'red.500',
         }
         return colorMap[status] || 'accent'
     }
 
     const translatePayment = (payment: string) => {
-        const paymentMap: Record<string, string> = {
-            cash: 'Наличными',
-            card: 'Картой',
-        }
-        return paymentMap[payment] || payment
+        if (payment === 'cash') return t('payCash')
+        if (payment === 'card') return t('payCard')
+        return payment
     }
 
     const [cancellingOrderId, setCancellingOrderId] = useState<number | null>(null)
@@ -132,7 +125,7 @@ export default function ProfilePage() {
                 </CloseButton>
 
                 <Heading size="2xl" fontWeight="800" textAlign="center" w="full">
-                    Профиль
+                    {t('profileTitle')}
                 </Heading>
             </Drawer.Header>
 
@@ -144,25 +137,39 @@ export default function ProfilePage() {
 
                     <Flex direction="column" justify="space-between" py="8px">
                         <Heading size="xl" fontWeight="800">
-                            {user?.first_name || 'Пользователь'}
+                            {user?.first_name || t('userFallback')}
                         </Heading>
                         <Heading size="lg" fontWeight="500">
-                            {user?.username ? `@${user.username}` : 'Юзернейм скрыт'}
+                            {user?.username ? `@${user.username}` : t('usernameHidden')}
                         </Heading>
-                        {/* <Heading size="lg" fontWeight="500">
-                            Баллов: {user?.coins}
-                        </Heading> */}
                     </Flex>
                 </Flex>
 
+                <Flex gap="8px" mt="gap" justify="center">
+                    {(['ru', 'uz'] as const).map((code) => (
+                        <Button
+                            key={code}
+                            size="sm"
+                            rounded="full"
+                            fontWeight="700"
+                            px="20px"
+                            bg={lang === code ? 'accent' : 'back'}
+                            color="text"
+                            onClick={() => setLang(code)}
+                        >
+                            {code === 'ru' ? '🇷🇺 Русский' : '🇺🇿 O‘zbekcha'}
+                        </Button>
+                    ))}
+                </Flex>
+
                 <Heading size="2xl" fontWeight="800" textAlign="center" w="full" py="gap">
-                    История заказов
+                    {t('orderHistory')}
                 </Heading>
 
                 <Flex gap="gap" direction="column">
                     {orderHistory.length === 0 ? (
                         <Text textAlign="center" py={4}>
-                            У вас пока нет заказов
+                            {t('noOrders')}
                         </Text>
                     ) : (
                         orderHistory
@@ -197,7 +204,7 @@ export default function ProfilePage() {
                                         {formatOrderDate(order.order_date)}
                                     </Text>
 
-                                    <Text fontWeight="500">Заказ №{order.order_id}</Text>
+                                    <Text fontWeight="500">{t('orderNumber', { id: order.order_id })}</Text>
 
                                     {(() => {
                                         const firstItemWithDates = order.items.find(
@@ -209,7 +216,7 @@ export default function ProfilePage() {
                                         )
                                         return period ? (
                                             <Text fontSize="sm" opacity="0.7">
-                                                Период: {period}
+                                                {t('period')}: {period}
                                             </Text>
                                         ) : null
                                     })()}
@@ -218,23 +225,23 @@ export default function ProfilePage() {
                                         {order.items.map((item) => (
                                             <Text key={item.order_item_id} fontWeight="500">
                                                 {item.quantity} ×{' '}
-                                                {item.product_name || `Товар #${item.product_id}`} -{' '}
+                                                {item.product_name || t('productFallback', { id: item.product_id })} -{' '}
                                                 {formatPriceK(item.unit_price * item.quantity)}
                                             </Text>
                                         ))}
                                     </Flex>
 
                                     <Text fontWeight="500">
-                                        Способ оплаты: {translatePayment(order.payment_option)}
+                                        {t('paymentMethod')}: {translatePayment(order.payment_option)}
                                     </Text>
 
                                     <Text fontWeight="500">
-                                        Итоговая сумма: {formatPriceK(order.total_price)}
+                                        {t('totalSum')}: {formatPriceK(order.total_price)}
                                     </Text>
 
                                     {order.address && (
                                         <Text fontWeight="500" color="text/50">
-                                            Адрес: {order.address}
+                                            {t('addressLabel')}: {order.address}
                                         </Text>
                                     )}
 
@@ -250,7 +257,7 @@ export default function ProfilePage() {
                                             loading={cancellingOrderId === order.order_id}
                                             onClick={() => setConfirmCancelOrderId(order.order_id)}
                                         >
-                                            Отменить заказ
+                                            {t('cancelOrder')}
                                         </Button>
                                     )}
                                 </Flex>
@@ -264,9 +271,9 @@ export default function ProfilePage() {
                     onConfirm={() => {
                         if (confirmCancelOrderId !== null) handleCancelOrder(confirmCancelOrderId)
                     }}
-                    title="Отменить заказ?"
-                    message="Вы уверены, что хотите отменить этот заказ? Это действие нельзя отменить."
-                    confirmLabel="Да, отменить"
+                    title={t('cancelOrderTitle')}
+                    message={t('cancelOrderMessage')}
+                    confirmLabel={t('cancelOrderConfirm')}
                 />
 
                 {isWebUser && (
@@ -284,7 +291,7 @@ export default function ProfilePage() {
                         onClick={handleLogout}
                     >
                         <Icon as={RiLogoutBoxLine} boxSize="20px" />
-                        Выйти из аккаунта
+                        {t('logout')}
                     </Button>
                 )}
             </Drawer.Body>

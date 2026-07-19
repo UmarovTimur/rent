@@ -20,6 +20,7 @@ import { useUserContext } from '@/contexts/UserContext'
 import { useTripDates } from '@/contexts/TripDatesContext'
 import { ADMIN_URL } from '@/config'
 import { addDaysToInputDate, formatInputDate } from '@/utils/rental'
+import { useTranslation } from '@/i18n/LanguageContext'
 
 type HeaderProps = {
     categories: string[]
@@ -37,6 +38,7 @@ type DatePickerFieldProps = {
 }
 
 const DatePickerField = ({ value, onChange, min, confirmed }: DatePickerFieldProps) => {
+    const { t } = useTranslation()
     // The date <input> sits transparently on top and is tapped directly (like the
     // time input) — iOS only opens the native date picker on a real tap on the
     // input, not on a programmatic open of a pointer-events:none element.
@@ -69,7 +71,7 @@ const DatePickerField = ({ value, onChange, min, confirmed }: DatePickerFieldPro
             <Input
                 type="date"
                 lang="ru-RU"
-                aria-label="Дата аренды"
+                aria-label={t('rentalDate')}
                 value={value}
                 min={min}
                 onChange={(e) => onChange(e.target.value)}
@@ -95,6 +97,7 @@ type TimeFieldProps = {
 // native input transparently (for its picker UX) and show the value ourselves —
 // the stored "HH:MM" is already 24h, so no am/pm can ever appear.
 const TimeField = ({ value, onChange, min, confirmed }: TimeFieldProps) => {
+    const { t } = useTranslation()
     const openPicker = (e: React.MouseEvent<HTMLInputElement>) => {
         const input = e.currentTarget
         try {
@@ -123,7 +126,7 @@ const TimeField = ({ value, onChange, min, confirmed }: TimeFieldProps) => {
             <Input
                 type="time"
                 lang="en-GB"
-                aria-label="Время аренды"
+                aria-label={t('rentalTime')}
                 step={60}
                 value={value}
                 min={min}
@@ -146,6 +149,7 @@ export default function Header({
     setSearchQuery,
 }: HeaderProps) {
     const { user } = useUserContext()
+    const { t } = useTranslation()
     const {
         startDate,
         endDate,
@@ -237,7 +241,7 @@ export default function Header({
                         p="14px"
                     >
                         <Heading textAlign="center" size="md" mb="10px" color="text">
-                            Даты аренды
+                            {t('rentalDatesTitle')}
                         </Heading>
 
                         <Flex gap="10px" direction="column">
@@ -291,7 +295,7 @@ export default function Header({
                         </Flex>
 
                         <Text textAlign="center" mt="8px" fontSize="xs" opacity="0.7">
-                            Показываем доступные товары, <br /> на выбранные даты аренды.
+                            {t('rentalDatesHint')}
                         </Text>
 
                         {validationError && (
@@ -306,7 +310,7 @@ export default function Header({
                     <Input
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Поиск по названию и описанию..."
+                        placeholder={t('searchPlaceholder')}
                         bg="card"
                         borderWidth="1px"
                         borderColor="gray"

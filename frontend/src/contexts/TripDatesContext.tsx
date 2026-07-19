@@ -16,6 +16,7 @@ import {
     utcIsoToTashkentParts,
 } from '@/utils/rental'
 import { BasketService } from '@/api/BasketService'
+import { useTranslation } from '@/i18n/LanguageContext'
 
 type TripDatesContextType = {
     startDate: string
@@ -74,6 +75,7 @@ export const TripDatesProvider = ({
     userId: number
     children: React.ReactNode
 }) => {
+    const { t } = useTranslation()
     // Defaults are Tashkent's today/tomorrow, not the device's.
     const today = getTashkentNowWall()
     const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000)
@@ -148,13 +150,13 @@ export const TripDatesProvider = ({
 
         if (hasValidRange && (!start || !end)) {
             hasValidRange = false
-            validationError = 'Проверьте корректность даты и времени аренды'
+            validationError = t('dateInvalid')
         } else if (hasValidRange && start && start.getTime() < nowWall.getTime()) {
             hasValidRange = false
             // Don't nag about the untouched "now" default drifting into the past while
             // the user is idle — only once they've actually engaged with the start.
             if (startDateConfirmed || startTimeConfirmed) {
-                validationError = 'Начало аренды не может быть в прошлом'
+                validationError = t('startInPast')
             }
         } else if (hasValidRange && start && end && end <= start) {
             hasValidRange = false
@@ -163,7 +165,7 @@ export const TripDatesProvider = ({
             // conflict — don't nag the user about it until they've actually chosen an
             // end date themselves, at which point a real conflict is worth flagging.
             if (endDateConfirmed) {
-                validationError = 'Время возврата должно быть позже времени получения'
+                validationError = t('returnBeforePickup')
             }
         }
 
@@ -258,6 +260,7 @@ export const TripDatesProvider = ({
         startTimeConfirmed,
         endTimeConfirmed,
         touched,
+        t,
     ])
 
     // Server persistence + item migration on a date change is owned by

@@ -3,6 +3,7 @@ import { Text, Flex, Button, Image, Heading, Mark, Box } from '@chakra-ui/react'
 import { Product } from '@/types/Products.ts'
 import { formatPriceK } from '@/utils/price'
 import { productImageSrc } from '@/utils/media'
+import { useTranslation } from '@/i18n/LanguageContext'
 
 type CardProps = {
     product: Product
@@ -12,6 +13,7 @@ type CardProps = {
 
 export default function Card({ product, onClick, unavailable = false }: CardProps) {
     const [hoverIdx, setHoverIdx] = useState(0)
+    const { t } = useTranslation()
 
     const allImages: string[] = [
         ...(product.image_url ? [productImageSrc(product.image_url)] : []),
@@ -91,7 +93,7 @@ export default function Card({ product, onClick, unavailable = false }: CardProp
                         fontWeight="700"
                         pointerEvents="none"
                     >
-                        Недоступно
+                        {t('unavailable')}
                     </Flex>
                 )}
 
@@ -179,7 +181,7 @@ export default function Card({ product, onClick, unavailable = false }: CardProp
                         fontSize="s"
                         fontWeight="500"
                     >
-                        <Mark color="accent">{formatPriceK(product.display_price ?? product.price)}&nbsp;</Mark>в день
+                        <Mark color="accent">{formatPriceK(product.display_price ?? product.price)}&nbsp;</Mark>{t('perDay')}
                     </Flex>
 
                     <Flex

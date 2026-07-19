@@ -19,6 +19,7 @@ import { useDrawer } from '@/contexts/DrawerContext'
 import { useBasketContext } from '@/contexts/BasketContext'
 import { useTripDates } from '@/contexts/TripDatesContext'
 import LimitDialog from './components/LimitDialog'
+import { useTranslation } from '@/i18n/LanguageContext'
 import { RentalService } from '@/api/RentalService'
 import { ProductService } from '@/api/ProductService'
 import { formatPriceK } from '@/utils/price'
@@ -54,6 +55,7 @@ export default function ProductPage({ product }: ProductPageProps) {
         rentalEndIso,
         getTripDurationDays,
     } = useTripDates()
+    const { t } = useTranslation()
 
     const reservedInBasketQuantity = useMemo(() => {
         if (!rentalStartIso || !rentalEndIso) return 0
@@ -112,7 +114,8 @@ export default function ProductPage({ product }: ProductPageProps) {
     }, [basketProducts, rentalStartIso, rentalEndIso, selectedProduct.product_id])
 
     useEffect(() => {
-        if (error?.includes('Максимальное')) {
+        // Match the 99-limit basket error regardless of language (both keep "99").
+        if (error?.includes('99')) {
             setShowLimitDialog(true)
         }
     }, [error])
@@ -438,31 +441,15 @@ export default function ProductPage({ product }: ProductPageProps) {
                             gap="10px"
                             align={{ base: 'flex-start', sm: 'center' }}
                         >
-                            <Text fontWeight="600">Период аренды:</Text>
+                            <Text fontWeight="600">{t('rentalPeriod')}:</Text>
                             <Mark fontWeight="bold" color="accent">
                                 {formatRentalDaysRu(getTripDurationDays() ?? 1)}
                             </Mark>
                         </Flex>
-                        {hasValidRange && datesConfirmed && (
-                            <Text
-                                w="full"
-                                maxW={{ base: '100%', lg: '920px' }}
-                                paddingX="18px"
-                                alignSelf="stretch"
-                                opacity={0.8}
-                                fontSize="sm"
-                                mt="6px"
-                            >
-                                {availabilityLoading
-                                    ? 'Проверяем доступность...'
-                                    : `Доступно на выбранный период: ${remainingAvailableQuantity ?? 0} шт.`}
-                            </Text>
-                        )}
-
                         {addons.length > 0 && (
                             <Box mt="14px">
                                 <Text fontWeight="700" px="18px" mb="8px">
-                                    Дополнительно
+                                    {t('additionally')}
                                 </Text>
                                 <Flex direction="column" gap="8px">
                                     {addons.map((addon) => {
@@ -558,7 +545,7 @@ export default function ProductPage({ product }: ProductPageProps) {
                                                 <Text fontWeight="700" color="accent" flexShrink={0}>
                                                     +{formatPriceK(addon.price)}
                                                     <Text as="span" fontSize="xs" opacity={0.7} color="text" ml="2px">
-                                                        {addon.price_mode === 'flat' ? 'разово' : '/сутки'}
+                                                        {addon.price_mode === 'flat' ? t('perOnce') : t('perDaySuffix')}
                                                     </Text>
                                                 </Text>
                                             </Flex>
@@ -606,8 +593,8 @@ export default function ProductPage({ product }: ProductPageProps) {
             <LimitDialog
                 isOpen={showLimitDialog}
                 onClose={handleCloseDialog}
-                title="Превышен лимит"
-                message="В корзине может быть не более 99 единиц одного товара"
+                title={t('limitTitle')}
+                message={t('limitBody')}
             />
         </>
     )

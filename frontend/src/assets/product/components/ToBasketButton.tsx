@@ -4,6 +4,7 @@ import { useBasketContext } from '@/contexts/BasketContext'
 import { useTripDates } from '@/contexts/TripDatesContext'
 import { formatPriceK } from '@/utils/price'
 import { AddonSelection } from '@/types/Basket'
+import { useTranslation } from '@/i18n/LanguageContext'
 
 type ToBasketProps = {
     currentPrice: number
@@ -29,6 +30,7 @@ export default function ToBasketButton({
     const { onClose } = useDrawer()
     const { addToBasket, loading } = useBasketContext()
     const { hasValidRange, datesConfirmed, rentalStartIso, rentalEndIso } = useTripDates()
+    const { t } = useTranslation()
 
     const needsDates = !hasValidRange || !datesConfirmed
     // A zero total means nothing billable is selected — a 0-priced product needs at
@@ -66,14 +68,14 @@ export default function ToBasketButton({
             opacity={isDisabled ? 0.6 : 1}
         >
             {needsDates
-                ? 'Укажите даты аренды'
+                ? t('specifyDates')
                 : unavailable
-                  ? 'Недоступно на эти даты'
+                  ? t('unavailableForDates')
                   : atCapacityInBasket
-                    ? 'Уже в корзине (максимум)'
+                    ? t('alreadyInCartMax')
                     : requiresOptions
-                      ? 'Выберите опции'
-                      : `В корзину - ${formatPriceK(currentPrice)}`}
+                      ? t('chooseOptions')
+                      : `${t('addToCart')} - ${formatPriceK(currentPrice)}`}
         </CloseButton>
     )
 }

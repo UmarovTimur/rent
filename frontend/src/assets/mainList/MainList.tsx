@@ -8,6 +8,7 @@ import Card from './components/Card'
 import ProductPage from '@/assets/product/ProductPage'
 import MotionDrawer from '@/assets/MotionDrawer'
 import { RentalService } from '@/api/RentalService'
+import { useTranslation } from '@/i18n/LanguageContext'
 import { useTripDates } from '@/contexts/TripDatesContext'
 import { Product } from '@/types/Products'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
@@ -79,6 +80,7 @@ export default function MainList({
 }: MainListProps) {
     const { loading, error, getProductsByCategory } = useProducts()
     const { hasValidRange, datesConfirmed, rentalStartIso, rentalEndIso } = useTripDates()
+    const { t } = useTranslation()
 
     const [visibleCategories, setVisibleCategories] = useState<string[]>([])
     const [isAutoChangeBlocked, setIsAutoChangeBlocked] = useState(false)
@@ -296,7 +298,7 @@ export default function MainList({
                     p="24px"
                 >
                     <Text textAlign="center" fontWeight="600" opacity={0.8}>
-                        Ничего не найдено
+                        {t('nothingFound')}
                     </Text>
                 </Box>
             ) : (
@@ -330,7 +332,7 @@ export default function MainList({
 
                         {!debouncedSearchQuery && products.length === 0 && (
                             <Text opacity={0.6} fontSize="sm" px="8px">
-                                В этой категории пока нет товаров
+                                {t('categoryEmpty')}
                             </Text>
                         )}
                     </Flex>

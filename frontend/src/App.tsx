@@ -13,6 +13,7 @@ import { BasketProvider } from '@/contexts/BasketContext.tsx'
 import { OrderProvider } from '@/contexts/OrderContext'
 import { Toaster } from '@/components/ui/toaster'
 import { UserProvider } from '@/contexts/UserContext.tsx'
+import { LanguageBridge } from '@/i18n/LanguageBridge.tsx'
 import { TripDatesProvider } from '@/contexts/TripDatesContext.tsx'
 // Phone-number web registration is temporarily disabled — re-enable by
 // restoring the PhoneAuthScreen render in the `needAuth` branch below.
@@ -138,6 +139,7 @@ export default function App() {
 
     return (
         <UserProvider userId={userId}>
+            <LanguageBridge>
             <OrderProvider userId={userId}>
                 <TripDatesProvider userId={userId}>
                     <BasketProvider userId={userId}>
@@ -181,6 +183,7 @@ export default function App() {
                     </BasketProvider>
                 </TripDatesProvider>
             </OrderProvider>
+            </LanguageBridge>
         </UserProvider>
     )
 }

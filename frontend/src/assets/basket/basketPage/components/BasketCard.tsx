@@ -12,6 +12,7 @@ import {
     previewLineTotalWithAddons,
 } from '@/utils/rental'
 import { formatPriceK } from '@/utils/price'
+import { useTranslation } from '@/i18n/LanguageContext'
 import { productImageSrc } from '@/utils/media'
 import ImageLightbox from '@/components/ImageLightbox'
 
@@ -23,6 +24,7 @@ export default function BasketCard({ price }: CardProps) {
     const { basket, basketProducts, updateQuantity, removeFromBasket } =
         useBasketContext()
     const { onClose } = useDrawer()
+    const { t } = useTranslation()
     const [localQuantity, setLocalQuantity] = useState(price.quantity)
     const updateTimeoutRef = useRef<number | null>(null)
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
@@ -177,8 +179,8 @@ export default function BasketCard({ price }: CardProps) {
                 isOpen={isDeleteDialogOpen}
                 onClose={() => setIsDeleteDialogOpen(false)}
                 onConfirm={handleDeleteConfirm}
-                title="Удаление товара"
-                message={`Удалить "${price.name}" из корзины?`}
+                title={t('removeItemTitle')}
+                message={t('removeItemMessage', { name: price.name })}
             />
 
             <Flex
@@ -255,7 +257,7 @@ export default function BasketCard({ price }: CardProps) {
                                     lineClamp={1}
                                 >
                                     + {addon.name} ({formatPriceK(addon.price)}
-                                    {addon.price_mode === 'flat' ? ' разово' : '/сут'})
+                                    {addon.price_mode === 'flat' ? ` ${t('perOnce')}` : t('perDayShort')})
                                 </Text>
                             ))}
                         </Flex>

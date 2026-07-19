@@ -1,6 +1,7 @@
 import { Button } from '@chakra-ui/react'
 import { useBasketContext } from '@/contexts/BasketContext'
 import { formatPriceK } from '@/utils/price'
+import { useTranslation } from '@/i18n/LanguageContext'
 
 type ToConfirmOrderProps = {
     openConfirmPage: () => void
@@ -10,6 +11,7 @@ export default function ToConfirmOrder({
     openConfirmPage,
 }: ToConfirmOrderProps) {
     const { basket } = useBasketContext()
+    const { t } = useTranslation()
 
     return (
         <Button
@@ -25,7 +27,7 @@ export default function ToConfirmOrder({
                 openConfirmPage()
             }}
         >
-            Оформить - {formatPriceK(basket?.total_price)}
+            {t('checkout')} - {formatPriceK(basket?.total_price)}
         </Button>
     )
 }

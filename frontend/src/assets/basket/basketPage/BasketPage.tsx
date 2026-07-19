@@ -5,12 +5,16 @@ import BasketCard from './components/BasketCard'
 import { useBasketContext } from '@/contexts/BasketContext'
 import { IoClose } from 'react-icons/io5'
 import { useDrawer } from '@/contexts/DrawerContext.tsx'
+import { useTranslation } from '@/i18n/LanguageContext'
+import type { Lang } from '@/i18n/translations'
 
 const MotionHeader = motion(Drawer.Header)
 const MotionBody = motion(Drawer.Body)
 const MotionFooter = motion(Drawer.Footer)
 
-const getItemCountText = (count: number) => {
+const getItemCountText = (count: number, lang: Lang) => {
+    if (lang === 'uz') return 'dona'
+
     const lastDigit = count % 10
     const lastTwoDigits = count % 100
 
@@ -30,6 +34,7 @@ const getItemCountText = (count: number) => {
 export const BasketPage = {
     Header: () => {
         const { basketProducts } = useBasketContext()
+        const { t, lang } = useTranslation()
         const itemCount = basketProducts.reduce(
             (sum, product) => sum + (product.quantity || 0),
             0
@@ -61,7 +66,7 @@ export const BasketPage = {
                     w="full"
                     position="relative"
                 >
-                    Корзина
+                    {t('cart')}
                     <Float
                         placement="middle-end"
                         opacity="0.5"
@@ -69,7 +74,7 @@ export const BasketPage = {
                         fontSize="xs"
                         offsetX="6"
                     >
-                        {itemCount} {getItemCountText(itemCount)}
+                        {itemCount} {getItemCountText(itemCount, lang)}
                     </Float>
                 </Heading>
             </MotionHeader>

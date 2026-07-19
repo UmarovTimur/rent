@@ -19,39 +19,42 @@ import { IoWallet, IoCard } from 'react-icons/io5'
 import { useOrder } from '@/contexts/OrderContext'
 import { useTripDates } from '@/contexts/TripDatesContext.tsx'
 import { formatInputDate, formatRentalDaysRu } from '@/utils/rental'
+import { useTranslation } from '@/i18n/LanguageContext'
 
 const MotionHeader = motion(Drawer.Header)
 const MotionBody = motion(Drawer.Body)
 const MotionFooter = motion(Drawer.Footer)
 
 export const ConfirmOrderPage = {
-    Header: ({ onBack }: { onBack: () => void }) => (
-        <MotionHeader
-            position="relative"
-            py="24px"
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-        >
-            <CloseButton position="absolute" left="24px" top="20px" onClick={onBack}>
-                <Icon as={IoArrowBackOutline} boxSize={6} />
-            </CloseButton>
-            <Heading size="2xl" fontWeight="800" textAlign="center" w="full">
-                Оформление
-            </Heading>
-        </MotionHeader>
-    ),
+    Header: ({ onBack }: { onBack: () => void }) => {
+        const { t } = useTranslation()
+        return (
+            <MotionHeader
+                position="relative"
+                py="24px"
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+            >
+                <CloseButton position="absolute" left="24px" top="20px" onClick={onBack}>
+                    <Icon as={IoArrowBackOutline} boxSize={6} />
+                </CloseButton>
+                <Heading size="2xl" fontWeight="800" textAlign="center" w="full">
+                    {t('checkoutTitle')}
+                </Heading>
+            </MotionHeader>
+        )
+    },
 
     Body: () => {
+        const { t } = useTranslation()
         const addressOptions = [
-            { label: 'Самовывоз: ул Спитамена 4', value: 'ул. Спитамена 10' },
+            { label: t('pickupOption'), value: 'ул. Спитамена 10' },
         ]
         const paymentOptions = [
-            { label: 'Картой', value: 'card', icon: <IoCard /> },
-            { label: 'Наличными', value: 'cash', icon: <IoWallet /> },
+            { label: t('payCard'), value: 'card', icon: <IoCard /> },
+            { label: t('payCash'), value: 'cash', icon: <IoWallet /> },
         ]
-
-
 
         const { startDate, getTripDurationDays, endDate, startTime, endTime } = useTripDates()
         const { formState, errors, updateField, updateSelectField } = useOrder()
@@ -77,7 +80,7 @@ export const ConfirmOrderPage = {
             >
                 <Flex direction="column" gap="12px" h="full">
                     <Box bg="back" rounded="28px" px="24px" py="14px">
-                        <Text fontWeight="600">Период аренды</Text>
+                        <Text fontWeight="600">{t('rentalPeriod')}</Text>
                         <Text opacity="0.7" fontSize="sm">
                             {formattedStartDate} {startTime} — {formattedEndDate} {endTime}
                         </Text>
@@ -88,7 +91,7 @@ export const ConfirmOrderPage = {
 
                     <CustomSelect
                         options={addressOptions}
-                        placeholder="Где получить снаряжение?"
+                        placeholder={t('addressPlaceholder')}
                         value={[formState.address]}
                         setValue={(val) => updateSelectField('address', val)}
                         isInvalid={!!errors.address}
@@ -103,7 +106,7 @@ export const ConfirmOrderPage = {
                         rounded="full"
                         size="md"
                         fontWeight="500"
-                        placeholder="Имя"
+                        placeholder={t('namePlaceholder')}
                         value={formState.firstName}
                         onChange={(e) => updateField('firstName', e.target.value)}
                     />
@@ -123,7 +126,7 @@ export const ConfirmOrderPage = {
                     />
                     <CustomSelect
                         options={paymentOptions}
-                        placeholder="Способ оплаты"
+                        placeholder={t('paymentPlaceholder')}
                         value={[formState.paymentOption]}
                         setValue={(val) => updateSelectField('paymentOption', val)}
                         isInvalid={!!errors.paymentOption}
@@ -176,11 +179,11 @@ export const ConfirmOrderPage = {
                         py="12px"
                         minH="48px"
                         resize="none"
-                        placeholder="Комментарий к заказу..."
+                        placeholder={t('commentPlaceholder')}
                         value={formState.comment}
                         onChange={(e) => updateField('comment', e.target.value)}
                     />
-                    <Text opacity="0.5" textAlign="center" fontSize="sm" color="text" mt="8px">В залог - Паспорт</Text>
+                    <Text opacity="0.5" textAlign="center" fontSize="sm" color="text" mt="8px">{t('depositPassport')}</Text>
                 </Flex>
                 <Text fontSize="sm" color="red.500" mt="8px">
                     {Object.values(errors)[0]}

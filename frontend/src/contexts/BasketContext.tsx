@@ -11,6 +11,7 @@ import { BasketService } from '@/api/BasketService'
 import { ProductService } from '@/api/ProductService'
 import { Product, Ingredient } from '@/types/Products'
 import { useTripDates } from '@/contexts/TripDatesContext'
+import { useTranslation } from '@/i18n/LanguageContext'
 
 export type ProductWithQuantity = Product & {
     quantity: number
@@ -67,6 +68,7 @@ export const BasketProvider = ({
     userId: number
 }) => {
     const { hasValidRange, rentalStartIso, rentalEndIso, tripDatesTouched } = useTripDates()
+    const { t } = useTranslation()
     const [basket, setBasket] = useState<Basket | null>(null)
     const [allProducts, setAllProducts] = useState<Product[]>([])
     const [loading, setLoading] = useState(false)
@@ -125,7 +127,7 @@ export const BasketProvider = ({
             const data = await BasketService.getBasket(userId)
             setBasket(data)
         } catch (err) {
-            setError('Ошибка обновления корзины')
+            setError(t('basketUpdateError'))
             console.error('Ошибка обновления корзины:', err)
         } finally {
             setLoading(false)
@@ -152,7 +154,7 @@ export const BasketProvider = ({
             const newTotal = currentQuantity + quantity
 
             if (newTotal > 99) {
-                setError('Максимальное количество товара в корзине - 99')
+                setError(t('maxQty99'))
                 return false
             }
 
@@ -167,7 +169,7 @@ export const BasketProvider = ({
             await refreshBasket()
             return true
         } catch (err) {
-            setError('Ошибка добавления в корзину')
+            setError(t('basketAddError'))
             console.error('Ошибка добавления в корзину:', err)
             return false
         } finally {
@@ -180,14 +182,14 @@ export const BasketProvider = ({
         setError('')
         try {
             if (quantity > 99) {
-                setError('Максимальное количество товара - 99')
+                setError(t('maxQty99'))
                 return
             }
 
             await BasketService.changeQuantity(basketItemId, quantity)
             await refreshBasket()
         } catch (err) {
-            setError('Ошибка изменения количества')
+            setError(t('basketQtyError'))
             console.error('Ошибка изменения количества:', err)
         } finally {
             setLoading(false)
@@ -229,7 +231,7 @@ export const BasketProvider = ({
             } catch (err) {
                 // Allow a retry on the next change.
                 lastMigratedKeyRef.current = ''
-                if (!cancelled) setError('Ошибка пересчета корзины при смене дат')
+                if (!cancelled) setError(t('basketRecalcError'))
                 console.error('Ошибка пересчета корзины при смене дат:', err)
             } finally {
                 migrateInFlightRef.current = false
@@ -258,7 +260,7 @@ export const BasketProvider = ({
             setBasket(updatedBasket)
             return updatedBasket
         } catch (err) {
-            setError('Ошибка удаления товара')
+            setError(t('basketRemoveError'))
             console.error('Ошибка удаления товара:', err)
             throw err
         } finally {

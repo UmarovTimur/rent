@@ -5,12 +5,14 @@ import { useOrder } from '@/contexts/OrderContext'
 import { useEffect } from 'react'
 import { useUserContext } from '@/contexts/UserContext.tsx'
 import { formatPriceK } from '@/utils/price'
+import { useTranslation } from '@/i18n/LanguageContext'
 
 export default function ConfirmOrderButton() {
     const { basket, refreshBasket } = useBasketContext()
     const { onClose } = useDrawer()
     const { submitOrder, isSuccess, resetForm } = useOrder()
     const { refreshOrderHistory } = useUserContext()
+    const { t } = useTranslation()
 
     // Успешное оформление: закрываем корзину, дальше клиенту показывается
     // OrderSuccessDialog (глобальный попап с напоминанием отправить чек в бот).
@@ -40,7 +42,7 @@ export default function ConfirmOrderButton() {
             color="text"
             onClick={handleSubmit}
         >
-            Заказать - {formatPriceK(basket?.total_price)}
+            {t('order')} - {formatPriceK(basket?.total_price)}
         </Button>
     )
 }

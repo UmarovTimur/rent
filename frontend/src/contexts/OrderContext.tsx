@@ -12,6 +12,7 @@ import { PaymentOption } from '@/types/Basket'
 import { Basket } from '@/types/Basket'
 import { toaster } from '@/components/ui/toaster.tsx'
 import { useUserContext } from '@/contexts/UserContext'
+import { useTranslation } from '@/i18n/LanguageContext'
 
 type OrderFormState = {
     firstName: string
@@ -45,6 +46,7 @@ export const OrderProvider = ({
     userId: number
 }) => {
     const { user } = useUserContext()
+    const { t } = useTranslation()
 
     const [formState, setFormState] = useState<OrderFormState>({
         firstName: '',
@@ -84,7 +86,7 @@ export const OrderProvider = ({
 
         requiredFields.forEach((field) => {
             if (!formState[field]) {
-                newErrors[field] = 'Обязательное поле'
+                newErrors[field] = t('requiredField')
                 hasEmptyFields = true
             }
         })
@@ -92,7 +94,7 @@ export const OrderProvider = ({
         if (hasEmptyFields) {
             setErrors(newErrors)
             toaster.create({
-                description: 'Заполните обязательные поля',
+                description: t('fillRequired'),
                 type: 'error',
             })
             return false
@@ -100,10 +102,10 @@ export const OrderProvider = ({
 
         const rawValue = formState.phone.replace(/\D/g, '');
         if (rawValue.length < 10) {
-            newErrors.phone = 'Некорректный номер телефона'
+            newErrors.phone = t('invalidPhone')
             setErrors(newErrors)
             toaster.create({
-                description: 'Исправьте ошибки в полях',
+                description: t('fixFieldErrors'),
                 type: 'error',
             })
             return false
@@ -111,7 +113,7 @@ export const OrderProvider = ({
 
         setErrors({})
         return true
-    }, [formState])
+    }, [formState, t])
 
     const updateField = useCallback(
         (field: keyof OrderFormState, value: string) => {
@@ -134,12 +136,12 @@ export const OrderProvider = ({
     const submitOrder = useCallback(
         async (basket: Basket) => {
             if (!basket?.basket_id) {
-                setSubmitError('Некорректная корзина')
+                setSubmitError(t('invalidBasket'))
                 return false
             }
 
             if (!validateForm()) {
-                setSubmitError('Заполните обязательные поля')
+                setSubmitError(t('fillRequired'))
                 return false
             }
 
@@ -163,7 +165,7 @@ export const OrderProvider = ({
                 setIsReceiptNoticeOpen(true)
                 return true
             } catch (error) {
-                let message = 'Ошибка при оформлении заказа'
+                let message = t('orderCreateError')
                 if (axios.isAxiosError(error)) {
                     const detail = (error.response?.data as { detail?: string } | undefined)?.detail
                     if (detail) message = detail
@@ -175,7 +177,7 @@ export const OrderProvider = ({
                 setIsSubmitting(false)
             }
         },
-        [formState, validateForm, userId]
+        [formState, validateForm, userId, t]
     )
 
     const resetForm = useCallback(() => {
