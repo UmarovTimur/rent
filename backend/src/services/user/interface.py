@@ -22,6 +22,10 @@ class UserServiceI(Protocol):
         ...
 
     @abstractmethod
+    async def get_by_username(self, username: str) -> UserResponse | None:
+        ...
+
+    @abstractmethod
     async def create_by_phone(self, phone_number: str, first_name: str, last_name: str | None = None) -> UserResponse:
         ...
 

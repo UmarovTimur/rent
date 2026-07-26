@@ -11,7 +11,7 @@ export default function ConfirmOrderButton() {
     const { basket, refreshBasket } = useBasketContext()
     const { onClose } = useDrawer()
     const { submitOrder, isSuccess, resetForm } = useOrder()
-    const { refreshOrderHistory } = useUserContext()
+    const { user, refreshOrderHistory } = useUserContext()
     const { t } = useTranslation()
 
     // Успешное оформление: закрываем корзину, дальше клиенту показывается
@@ -28,6 +28,25 @@ export default function ConfirmOrderButton() {
         await submitOrder(basket)
         await refreshBasket()
         await refreshOrderHistory()
+    }
+
+    if (user?.is_banned) {
+        return (
+            <Button
+                w="full"
+                bg="red.600"
+                h="48px"
+                p="0"
+                fontSize="md"
+                fontWeight="700"
+                rounded="full"
+                color="white"
+                disabled
+                _disabled={{ opacity: 1, cursor: 'not-allowed' }}
+            >
+                {t('userBanned')}
+            </Button>
+        )
     }
 
     return (

@@ -133,6 +133,18 @@ async def handle_language_choice(callback: CallbackQuery, state: FSMContext) -> 
     if current == Registration.waiting_language.state and isinstance(callback.message, Message):
         await state.set_state(Registration.waiting_phone)
         await callback.message.answer(t("phone_prompt", lang), reply_markup=phone_request_keyboard(lang))
+    elif isinstance(callback.message, Message):
+        # Standalone change — refresh the persistent menu so its button labels
+        # reflect the new language.
+        from src.config import admin_calendar_url
+        from src.handlers.admin_callbacks import _is_admin
+        from src.menu import build_main_menu
+
+        is_admin = await _is_admin(callback.from_user.id)
+        await callback.message.answer(
+            t("menu_refreshed", lang),
+            reply_markup=build_main_menu(is_admin=is_admin, lang=lang, admin_calendar_url=admin_calendar_url),
+        )
 
 
 async def _save_phone_and_ask_name(message: Message, state: FSMContext, phone: str) -> None:
@@ -213,7 +225,15 @@ async def handle_name(message: Message, state: FSMContext) -> None:
         return
 
     await state.clear()
-    await message.answer(t("registration_done", lang), reply_markup=ReplyKeyboardRemove())
+    from src.config import admin_calendar_url
+    from src.menu import build_main_menu
+
+    # A brand-new user can't be an admin yet (that flag is set manually in
+    # SQLAdmin afterwards) — the persistent menu upgrades next time they see it.
+    await message.answer(
+        t("registration_done", lang),
+        reply_markup=build_main_menu(is_admin=False, lang=lang, admin_calendar_url=admin_calendar_url),
+    )
 
 
 @router.message(Registration.waiting_name, ~F.text)

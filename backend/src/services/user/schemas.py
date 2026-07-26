@@ -22,6 +22,7 @@ class UserUpdate(BaseModel):
     last_name: str | None = None
     phone_number: str | None = None
     language_code: str | None = None
+    is_banned: bool | None = None
 
 
 class UserResponse(BaseModel):
@@ -33,6 +34,7 @@ class UserResponse(BaseModel):
     coins: float | None
     phone_number: str | None = None
     is_admin: bool | None = None
+    is_banned: bool | None = None
 
     class Config:
         from_attributes = True

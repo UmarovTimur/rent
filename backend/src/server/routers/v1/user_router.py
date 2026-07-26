@@ -66,6 +66,19 @@ async def get_user_by_id(
     return await user_service.get_by_id(user_id)
 
 
+@router.get("/get_by_username", response_model=UserResponse, dependencies=[Depends(require_internal)])
+async def get_by_username(
+    username: str,
+    user_service: UserServiceI = Depends(get_user_service),
+) -> UserResponse:
+    # Internal-only (bot admin flows): resolve @username → user reliably from our
+    # own DB, since the Telegram Bot API can't look up arbitrary usernames.
+    user = await user_service.get_by_username(username)
+    if user is None:
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="User not found")
+    return user
+
+
 @router.get("/admins", response_model=list[int], dependencies=[Depends(require_internal)])
 async def get_admins(
     user_service: UserServiceI = Depends(get_user_service),

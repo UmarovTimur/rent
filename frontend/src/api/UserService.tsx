@@ -9,6 +9,7 @@ export interface User {
     address?: string
     language_code?: string | null
     is_admin: boolean
+    is_banned?: boolean | null
     coins: number
 }
 
@@ -31,6 +32,7 @@ export interface OrderHistory {
         quantity: number
         rental_start?: string | null
         rental_end?: string | null
+        parent_order_item_id?: number | null
     }[]
 }
 

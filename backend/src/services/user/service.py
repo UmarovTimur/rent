@@ -1,7 +1,7 @@
 import random
 
 from pydantic import TypeAdapter
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from src.clients.database.models.user import User
 from src.services.base import BaseService
@@ -43,6 +43,18 @@ class UserService(BaseService, UserServiceI):
         async with self.session() as session, session.begin():
             result = await session.execute(select(User).where(User.phone_number == phone_number))
             user = result.scalar_one_or_none()
+            if not user:
+                return None
+        type_adapter = TypeAdapter(UserResponse)
+        return type_adapter.validate_python(user)
+
+    async def get_by_username(self, username: str) -> UserResponse | None:
+        # Case-insensitive: Telegram usernames aren't case-sensitive, and admins
+        # may type any casing. Strip a leading "@".
+        username = username.lstrip("@")
+        async with self.session() as session, session.begin():
+            result = await session.execute(select(User).where(func.lower(User.username) == username.lower()))
+            user = result.scalars().first()
             if not user:
                 return None
         type_adapter = TypeAdapter(UserResponse)
