@@ -2,6 +2,7 @@ from sqladmin.authentication import AuthenticationBackend
 from starlette.requests import Request
 
 from src.container import container
+from src.services import login_ratelimit
 from src.services.admin_auth import admin_exists, authenticate_admin
 
 SESSION_ADMIN_ID = "admin_user_id"
@@ -13,13 +14,19 @@ class AdminAuth(AuthenticationBackend):
         form = await request.form()
         username = (form.get("username") or "").strip()
         password = form.get("password") or ""
+        client_ip = request.client.host if request.client else ""
+
+        if await login_ratelimit.is_locked_out(username, client_ip):
+            return False
 
         async with container.database().get_session() as session:
             admin = await authenticate_admin(session, username, password)
 
         if admin is None:
+            await login_ratelimit.register_failure(username, client_ip)
             return False
 
+        await login_ratelimit.reset(username, client_ip)
         request.session[SESSION_ADMIN_ID] = admin.id
         request.session[SESSION_ADMIN_USERNAME] = admin.username
         return True

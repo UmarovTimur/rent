@@ -88,6 +88,14 @@ def create_application() -> CustomFastAPI:
     )
 
     admin_settings = container.admin_settings()
+    # A left-at-default session secret means anyone can forge an admin session
+    # cookie (the HMAC key is a public constant) — refuse to boot rather than
+    # run silently forgeable in production.
+    if admin_settings.session_secret == "change-me-in-production":
+        raise RuntimeError(
+            "ADMIN_SESSION_SECRET is unset/default — set a long random value "
+            "before starting (admin session cookies are otherwise forgeable)."
+        )
     # Shared admin session cookie: read by both the /api calendar endpoints and,
     # via the same secret, the SQLAdmin panel's own session middleware.
     server.add_middleware(

@@ -22,6 +22,7 @@ ERROR_STATUS_MAP = {
     errors.InvalidRentalPeriodError: HTTPStatus.BAD_REQUEST,
     errors.InvalidStatusTransitionError: HTTPStatus.CONFLICT,
     errors.TooManyActiveOrdersError: HTTPStatus.TOO_MANY_REQUESTS,
+    errors.UserBannedError: HTTPStatus.FORBIDDEN,
 }
 
 

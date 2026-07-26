@@ -1,3 +1,4 @@
+import hmac
 from dataclasses import dataclass
 from http import HTTPStatus
 
@@ -67,7 +68,9 @@ async def require_telegram_user(
 
 
 def _is_internal(token: str | None, expected: str) -> bool:
-    return bool(expected) and token == expected
+    # Constant-time compare so the shared secret isn't timing-attackable
+    # (matches hmac.compare_digest used for the Telegram/admin checks).
+    return bool(expected) and hmac.compare_digest(token or "", expected)
 
 
 async def require_internal(

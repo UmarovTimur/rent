@@ -5,12 +5,12 @@ from pydantic import BaseModel, Field, model_validator
 
 class AddonSelection(BaseModel):
     product_id: int
-    quantity: int = Field(1, ge=1)
+    quantity: int = Field(1, ge=1, le=99)
 
 
 class BasketItemCreate(BaseModel):
     product_id: int
-    quantity: int = Field(..., ge=1)
+    quantity: int = Field(..., ge=1, le=99)
     rental_start: datetime | None = None
     rental_end: datetime | None = None
     # Selected add-ons (each with its own quantity) attached as child items.
@@ -68,4 +68,4 @@ class BasketResponse(BaseModel):
 
 class QuantityUpdate(BaseModel):
     basket_item_id: int
-    quantity: int
+    quantity: int = Field(..., ge=1, le=99)

@@ -67,3 +67,8 @@ class TooManyActiveOrdersError(BaseError):
         message: str = "У вас уже слишком много активных заказов. Завершите или отмените один из них, чтобы оформить новый.",
     ):
         super().__init__(message)
+
+
+class UserBannedError(BaseError):
+    def __init__(self, message: str = "Ваш аккаунт заблокирован. Обратитесь в поддержку."):
+        super().__init__(message)
