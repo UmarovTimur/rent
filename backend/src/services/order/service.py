@@ -10,7 +10,7 @@ from src.clients.database.models.order import Order, OrderItem
 from src.clients.database.models.user import User
 from src.services.base import BaseService
 from src.services.basket.interface import BasketServiceI
-from src.services.errors import OrderNotFoundError, BasketNotFoundError, TooManyActiveOrdersError
+from src.services.errors import OrderNotFoundError, BasketNotFoundError, TooManyActiveOrdersError, UserBannedError
 from src.services.order.interface import OrderServiceI
 from src.services.order.schemas import OrderCreate, OrderResponse, OrderStatus, OrderItemResponse
 from src.services.rental.interface import RentalServiceI
@@ -46,20 +46,46 @@ class OrderService(BaseService, OrderServiceI):
 
     async def create_order(self, user_id: int, order_data: OrderCreate) -> int:
         async with self.session() as session, session.begin():
-            query = select(Basket).where(Basket.user_id == user_id).options(
-                joinedload(Basket.items).joinedload(BasketItem.product),
-            )
-            result = await session.execute(query)
-            basket = result.unique().scalar_one_or_none()
-
-            if not basket or not basket.items:
+            # Step 1 — lock the user's basket ROW ALONE (no join). This
+            # serializes concurrent create_order calls from the same user (they
+            # contend on this row), fixing two races at once: the active-order
+            # cap TOCTOU (count-then-insert) and one basket spawning duplicate
+            # orders. Crucially the join is NOT here: under READ COMMITTED a
+            # `FOR UPDATE` that includes a join re-reads the locked row after the
+            # wait but keeps the joined rows from the pre-wait snapshot, so a
+            # blocked second caller would still see the just-deleted basket items.
+            basket = (
+                await session.execute(
+                    select(Basket).where(Basket.user_id == user_id).with_for_update()
+                )
+            ).scalar_one_or_none()
+            if not basket:
                 raise BasketNotFoundError
+
+            # Step 2 — load the items in a SEPARATE query, which runs at a fresh
+            # statement snapshot once the lock is held, so a serialized caller
+            # correctly sees an empty basket if the prior order already cleared it.
+            items_result = await session.execute(
+                select(BasketItem)
+                .where(BasketItem.basket_id == basket.basket_id)
+                .options(joinedload(BasketItem.product))
+            )
+            basket_items = items_result.scalars().unique().all()
+            if not basket_items:
+                raise BasketNotFoundError
+
+            is_admin, is_banned, coins = (
+                await session.execute(
+                    select(User.is_admin, User.is_banned, User.coins).where(User.user_id == user_id)
+                )
+            ).one()
+            if is_banned:
+                raise UserBannedError
 
             # Admins place orders on behalf of phone-in clients too, so they
             # legitimately carry more concurrent active orders than a regular
             # customer — the cap only protects against one client hoarding
             # inventory, not against normal admin usage.
-            is_admin = await session.scalar(select(User.is_admin).where(User.user_id == user_id))
             if not is_admin:
                 active_orders_count = await session.scalar(
                     select(func.count())
@@ -70,7 +96,7 @@ class OrderService(BaseService, OrderServiceI):
                     raise TooManyActiveOrdersError
 
             rental_demands: dict[tuple[int, datetime, datetime], int] = {}
-            for basket_item in basket.items:
+            for basket_item in basket_items:
                 if basket_item.rental_start is None:
                     await self.rental_service.ensure_product_available(
                         session=session,
@@ -99,15 +125,40 @@ class OrderService(BaseService, OrderServiceI):
 
             # Always price/attach the authenticated user's own basket — never a
             # client-supplied basket_id (which could point at another user).
+            # Build the Order explicitly from a whitelist of client fields —
+            # never spread order_data.model_dump(), which would let a client set
+            # status/discount (status="taken" bypasses payment/approval).
             total_price = await self._calculate_total_price(session, basket.basket_id)
+
+            # Redeem bonus coins as a discount, capped at the user's own balance
+            # and at the order total (never goes negative). The client only
+            # toggles use_coins — the amount is always computed server-side.
+            coins_redeemed = 0
+            if order_data.use_coins and coins:
+                coins_redeemed = min(int(coins), total_price)
+                if coins_redeemed > 0:
+                    await session.execute(
+                        update(User)
+                        .where(User.user_id == user_id)
+                        .values(coins=User.coins - coins_redeemed)
+                    )
+                    total_price -= coins_redeemed
+
             order_date = datetime.now(tz=UTC)
             payment_hold_minutes = BillingSettings().payment_hold_minutes
             new_order = Order(
                 user_id=user_id,
+                basket_id=basket.basket_id,
                 total_price=total_price,
+                discount=float(coins_redeemed) if coins_redeemed else None,
                 order_date=order_date,
                 payment_deadline=order_date + timedelta(minutes=payment_hold_minutes),
-                **{**order_data.model_dump(), "basket_id": basket.basket_id},
+                status=OrderStatus.CREATED.value,
+                payment_option=order_data.payment_option,
+                comment=order_data.comment,
+                first_name=order_data.first_name,
+                address=order_data.address,
+                phone=order_data.phone,
             )
             session.add(new_order)
             await session.flush()
@@ -116,7 +167,7 @@ class OrderService(BaseService, OrderServiceI):
             # Pass 1: create an OrderItem per basket line, remembering the
             # basket_item_id → OrderItem mapping (parent ids exist only after flush).
             order_item_by_basket_id: dict[int, OrderItem] = {}
-            for basket_item in basket.items:
+            for basket_item in basket_items:
                 order_item = OrderItem(
                     order_id=new_order.order_id,
                     product_id=basket_item.product_id,
@@ -131,7 +182,7 @@ class OrderService(BaseService, OrderServiceI):
             await session.flush()
 
             # Pass 2: link add-on OrderItems to their parent's OrderItem.
-            for basket_item in basket.items:
+            for basket_item in basket_items:
                 if basket_item.parent_basket_item_id is None:
                     continue
                 child = order_item_by_basket_id[basket_item.basket_item_id]
@@ -139,7 +190,14 @@ class OrderService(BaseService, OrderServiceI):
                 if parent is not None:
                     child.parent_order_item_id = parent.order_item_id
 
-        await self.basket_service.clear_basket(basket.basket_id, user_id)
+            # Clear the basket INSIDE this locked transaction (not after commit):
+            # otherwise a second concurrent create_order, after acquiring the
+            # basket lock this one just released, would still see the un-cleared
+            # items and produce a duplicate order. Delete only parent lines —
+            # child add-ons cascade (delete-orphan + FK ondelete=CASCADE).
+            for basket_item in basket_items:
+                if basket_item.parent_basket_item_id is None:
+                    await session.delete(basket_item)
         return order_id
 
     async def get_order(self, order_id: int) -> OrderResponse:
@@ -152,7 +210,8 @@ class OrderService(BaseService, OrderServiceI):
 
             if not order:
                 raise OrderNotFoundError
-            return self._to_order_response(order)
+            username = await session.scalar(select(User.username).where(User.user_id == order.user_id))
+            return self._to_order_response(order, username)
 
     async def get_all(self, user_id: int | None) -> list[OrderResponse]:
         async with self.session() as session:
@@ -163,13 +222,23 @@ class OrderService(BaseService, OrderServiceI):
                 query = query.where(Order.user_id == user_id)
             result = await session.execute(query)
             orders = result.unique().scalars().all()
-            return [self._to_order_response(order) for order in orders]
+
+            # One query for all usernames, mapped by user_id (avoids N+1).
+            user_ids = {o.user_id for o in orders}
+            usernames: dict[int, str | None] = {}
+            if user_ids:
+                rows = await session.execute(
+                    select(User.user_id, User.username).where(User.user_id.in_(user_ids))
+                )
+                usernames = {uid: uname for uid, uname in rows}
+            return [self._to_order_response(order, usernames.get(order.user_id)) for order in orders]
 
     @staticmethod
-    def _to_order_response(order: Order) -> OrderResponse:
+    def _to_order_response(order: Order, username: str | None = None) -> OrderResponse:
         return OrderResponse(
             order_id=order.order_id,
             user_id=order.user_id,
+            username=username,
             basket_id=order.basket_id,
             order_date=order.order_date,
             payment_option=order.payment_option,
@@ -225,17 +294,3 @@ class OrderService(BaseService, OrderServiceI):
                     price_mode=item.product.price_mode,
                 )
         return floor_to_step(total_units // 2, BillingSettings().total_floor_step)
-
-    async def earning_points(self, order_id: int):
-        async with self.session() as session, session.begin():
-            query = select(Order).where(Order.order_id == order_id)
-            result = await session.execute(query)
-            order: Order = result.scalars().first()
-
-            stmt = (
-                update(User)
-                .where(User.user_id == order.user_id)
-                .values(coins=User.coins + int(order.total_price/10))
-
-            )
-            await session.execute(stmt)

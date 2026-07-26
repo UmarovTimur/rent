@@ -56,15 +56,15 @@ export const translations: Record<string, Record<Lang, string>> = {
 
     // ─── Checkout form ────────────────────────────────────────────────────
     checkoutTitle: { ru: 'Оформление', uz: 'Rasmiylashtirish' },
-    pickupOption: { ru: 'Самовывоз: ул. Спитамена 4', uz: 'Olib ketish: Spitamen ko‘chasi 4' },
     payCard: { ru: 'Картой', uz: 'Karta orqali' },
     payCash: { ru: 'Наличными', uz: 'Naqd pul' },
     rentalPeriod: { ru: 'Период аренды', uz: 'Ijara muddati' },
-    addressPlaceholder: { ru: 'Где получить снаряжение?', uz: 'Jihozni qayerdan olasiz?' },
+    pickupAddressLabel: { ru: 'Адрес выдачи', uz: 'Berish manzili' },
     namePlaceholder: { ru: 'Имя', uz: 'Ism' },
     paymentPlaceholder: { ru: 'Способ оплаты', uz: 'To‘lov usuli' },
     commentPlaceholder: { ru: 'Комментарий к заказу...', uz: 'Buyurtmaga izoh...' },
     depositPassport: { ru: 'В залог — Паспорт', uz: 'Garov sifatida — Pasport' },
+    useCoinsLabel: { ru: 'Списать {amount} баллов', uz: '{amount} ball yechish' },
 
     // ─── Order success dialog ─────────────────────────────────────────────
     orderAcceptedTitle: { ru: '⏳ Заявка принята', uz: '⏳ Ariza qabul qilindi' },
@@ -79,6 +79,7 @@ export const translations: Record<string, Record<Lang, string>> = {
     profileTitle: { ru: 'Профиль', uz: 'Profil' },
     userFallback: { ru: 'Пользователь', uz: 'Foydalanuvchi' },
     usernameHidden: { ru: 'Юзернейм скрыт', uz: 'Foydalanuvchi nomi yashirilgan' },
+    coinsBalance: { ru: '🎁 Баллов: {amount}', uz: '🎁 Ballar: {amount}' },
     orderHistory: { ru: 'История заказов', uz: 'Buyurtmalar tarixi' },
     noOrders: { ru: 'У вас пока нет заказов', uz: 'Sizda hozircha buyurtma yo‘q' },
     orderNumber: { ru: 'Заказ №{id}', uz: '№{id} buyurtma' },
@@ -131,4 +132,9 @@ export const translations: Record<string, Record<Lang, string>> = {
         uz: 'Ilova Telegram ichida ishlaydi. Ijara rasmiylashtirish uchun botimizni oching.',
     },
     openInTelegram: { ru: 'Открыть в Telegram', uz: 'Telegramda ochish' },
+
+    // ─── Banned account ────────────────────────────────────────────────────
+    // Short label only — the actionable "contact the manager" text is pushed to
+    // the client in the bot at block time, not shown here.
+    userBanned: { ru: 'Пользователь заблокирован', uz: 'Foydalanuvchi bloklangan' },
 }

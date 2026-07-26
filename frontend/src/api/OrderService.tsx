@@ -9,11 +9,10 @@ export const OrderService = {
             basket_id: number
             payment_option: 'card' | 'cash'
             comment: string
-            status: 'created' | 'in_progress' | 'completed' | 'canceled'
             first_name: string
             address: string
             phone: string
-            discount: number
+            use_coins: boolean
         }
     ): Promise<Basket> => {
         const response = await axios.post<Basket>(

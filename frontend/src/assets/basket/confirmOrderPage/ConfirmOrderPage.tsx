@@ -9,17 +9,23 @@ import {
     Input,
     Box,
     Mark,
+    Switch,
 } from '@chakra-ui/react'
 import { useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { IoArrowBackOutline } from 'react-icons/io5'
+import { HiCheck, HiX } from 'react-icons/hi'
 import ConfirmOrderButton from './components/ConfirmOrderButton.tsx'
 import CustomSelect from './components/CustomSelect.tsx'
 import { IoWallet, IoCard } from 'react-icons/io5'
 import { useOrder } from '@/contexts/OrderContext'
+import { useUserContext } from '@/contexts/UserContext'
+import { useBasketContext } from '@/contexts/BasketContext'
 import { useTripDates } from '@/contexts/TripDatesContext.tsx'
 import { formatInputDate, formatRentalDaysRu } from '@/utils/rental'
+import { formatPriceK } from '@/utils/price'
 import { useTranslation } from '@/i18n/LanguageContext'
+import { PICKUP_ADDRESS } from '@/config'
 
 const MotionHeader = motion(Drawer.Header)
 const MotionBody = motion(Drawer.Body)
@@ -48,24 +54,24 @@ export const ConfirmOrderPage = {
 
     Body: () => {
         const { t } = useTranslation()
-        const addressOptions = [
-            { label: t('pickupOption'), value: 'ул. Спитамена 10' },
-        ]
         const paymentOptions = [
             { label: t('payCard'), value: 'card', icon: <IoCard /> },
             { label: t('payCash'), value: 'cash', icon: <IoWallet /> },
         ]
 
         const { startDate, getTripDurationDays, endDate, startTime, endTime } = useTripDates()
-        const { formState, errors, updateField, updateSelectField } = useOrder()
+        const { formState, errors, updateField, updateSelectField, setUseCoins } = useOrder()
+        const { user } = useUserContext()
+        const { basket } = useBasketContext()
         const formattedStartDate = formatInputDate(startDate)
         const formattedEndDate = formatInputDate(endDate)
+        const availableCoins = Math.min(user?.coins || 0, basket?.total_price || 0)
 
-        // Only one pickup location exists today — pre-select it so the client
-        // isn't forced to open a dropdown just to pick the single option.
+        // Only one pickup location exists — there's nothing to choose, so it's
+        // set once here rather than shown as a selectable field.
         useEffect(() => {
             if (!formState.address) {
-                updateSelectField('address', addressOptions[0].value)
+                updateSelectField('address', PICKUP_ADDRESS)
             }
             // eslint-disable-next-line react-hooks/exhaustive-deps
         }, [])
@@ -87,15 +93,11 @@ export const ConfirmOrderPage = {
                         <Mark fontWeight="bold" color="accent">
                             {formatRentalDaysRu(getTripDurationDays())}
                         </Mark>
+                        <Text opacity="0.7" fontSize="sm" mt="4px">
+                            {t('pickupAddressLabel')}: {PICKUP_ADDRESS}
+                        </Text>
                     </Box>
 
-                    <CustomSelect
-                        options={addressOptions}
-                        placeholder={t('addressPlaceholder')}
-                        value={[formState.address]}
-                        setValue={(val) => updateSelectField('address', val)}
-                        isInvalid={!!errors.address}
-                    />
                     <Input
                         bg="back"
                         borderColor={errors.firstName ? 'red.500' : 'back'}
@@ -132,7 +134,7 @@ export const ConfirmOrderPage = {
                         isInvalid={!!errors.paymentOption}
                     />
 
-                    {/* {user && basket && user.coins > 0 && (
+                    {availableCoins > 0 && (
                         <Flex
                             bg="back"
                             h="48px"
@@ -143,13 +145,15 @@ export const ConfirmOrderPage = {
                             alignItems="center"
                         >
                             <Text fontSize="14px" fontWeight="500">
-                                {`Скидка ${((
-                                    (user.coins * 100) /
-                                    Math.max(basket.total_price, 1)
-                                ).toFixed(0))}% за баллы`}
+                                {t('useCoinsLabel', { amount: formatPriceK(availableCoins) })}
                             </Text>
 
-                            <Switch.Root size="md" scale="1.5">
+                            <Switch.Root
+                                size="md"
+                                scale="1.5"
+                                checked={formState.useCoins}
+                                onCheckedChange={(e) => setUseCoins(e.checked)}
+                            >
                                 <Switch.HiddenInput />
                                 <Switch.Control bg="card">
                                     <Switch.Thumb
@@ -164,7 +168,7 @@ export const ConfirmOrderPage = {
                                 </Switch.Control>
                             </Switch.Root>
                         </Flex>
-                    )} */}
+                    )}
 
                     <Textarea
                         bg="back"

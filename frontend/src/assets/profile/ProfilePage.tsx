@@ -22,6 +22,7 @@ import axios from 'axios'
 import API_BASE_URL from '@/config'
 import ConfirmationDialog from '@/assets/basket/basketPage/components/ConfirmationDialog'
 import { useTranslation } from '@/i18n/LanguageContext'
+import { groupOrderItems } from '@/utils/orderItems'
 
 const cisDateFormatter = new Intl.DateTimeFormat('ru-RU', {
     day: '2-digit',
@@ -142,6 +143,11 @@ export default function ProfilePage() {
                         <Heading size="lg" fontWeight="500">
                             {user?.username ? `@${user.username}` : t('usernameHidden')}
                         </Heading>
+                        {!!user?.coins && (
+                            <Text fontWeight="600" color="accent">
+                                {t('coinsBalance', { amount: formatPriceK(user.coins) })}
+                            </Text>
+                        )}
                     </Flex>
                 </Flex>
 
@@ -222,13 +228,24 @@ export default function ProfilePage() {
                                     })()}
 
                                     <Flex direction="column" gap="4px">
-                                        {order.items.map((item) => (
-                                            <Text key={item.order_item_id} fontWeight="500">
-                                                {item.quantity} ×{' '}
-                                                {item.product_name || t('productFallback', { id: item.product_id })} -{' '}
-                                                {formatPriceK(item.unit_price * item.quantity)}
-                                            </Text>
-                                        ))}
+                                        {groupOrderItems(order.items, (id) =>
+                                            t('productFallback', { id })
+                                        ).map((row) =>
+                                            row.type === 'flat' ? (
+                                                <Text key={row.key} fontWeight="500">
+                                                    {row.text}
+                                                </Text>
+                                            ) : (
+                                                <Flex key={row.key} direction="column" gap="2px">
+                                                    <Text fontWeight="600">{row.header}</Text>
+                                                    {row.children.map((child) => (
+                                                        <Text key={child.key} fontWeight="500" pl="14px" fontSize="sm">
+                                                            • {child.text}
+                                                        </Text>
+                                                    ))}
+                                                </Flex>
+                                            )
+                                        )}
                                     </Flex>
 
                                     <Text fontWeight="500">

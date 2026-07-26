@@ -4,7 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -28,6 +28,17 @@ from src.services.rental.schemas import (
     RentalOrderItemBrief,
     RentalOrderSummary,
 )
+
+# Guardrails on client-supplied quantities/periods (a crafted raw request must
+# not order a million units or book the past / a 5-year window).
+_MAX_LINE_QUANTITY = 99
+_MAX_RENTAL_DURATION = timedelta(days=30)
+_PAST_BOOKING_GRACE = timedelta(hours=1)
+
+# Bonus coins credited on handover ("Отдал") — this is when full payment is
+# actually collected, not on return. 1 coin == 1 sum of balance, redeemable as
+# a discount on a future order (see OrderService.create_order's use_coins).
+BONUS_ACCRUAL_RATE = 0.10
 
 ALLOWED_TRANSITIONS: dict[str, set[str]] = {
     # Matches the admin bot's keyboard (bot/src/handlers/admin_callbacks.py
@@ -167,6 +178,11 @@ class RentalService(BaseService, RentalServiceI):
     ) -> None:
         if quantity <= 0:
             raise RentalUnavailableError("Quantity must be positive")
+        # Absolute per-line cap — mirrors the basket schema bounds (Field le=99)
+        # so a crafted raw request can't order a million of anything, including
+        # non-rental products which otherwise have no capacity ceiling.
+        if quantity > _MAX_LINE_QUANTITY:
+            raise RentalUnavailableError(f"Quantity per item cannot exceed {_MAX_LINE_QUANTITY}")
 
         rental = await self._get_product_rental(session, product_id, for_update=True, allow_missing=True)
 
@@ -277,8 +293,18 @@ class RentalService(BaseService, RentalServiceI):
 
     async def update_rental_status(self, order_id: int, new_status: OrderStatus) -> None:
         async with self.session() as session, session.begin():
+            # FOR UPDATE: two admins tapping the same action within milliseconds
+            # (e.g. both hit "Одобрить") must not both see the pre-change status
+            # and both succeed. The second transaction blocks here until the
+            # first commits, then re-reads the *already updated* row — so its
+            # transition check below runs against the fresh status and correctly
+            # rejects a stale transition (e.g. in_progress -> in_progress) with
+            # InvalidStatusTransitionError instead of silently double-applying.
             result = await session.execute(
-                select(Order).where(Order.order_id == order_id).options(selectinload(Order.items))
+                select(Order)
+                .where(Order.order_id == order_id)
+                .options(selectinload(Order.items))
+                .with_for_update()
             )
             order = result.unique().scalar_one_or_none()
             if not order:
@@ -325,6 +351,16 @@ class RentalService(BaseService, RentalServiceI):
                     )
 
             order.status = new_status.value
+
+            if new_status.value == OrderStatus.TAKEN.value and not order.points_awarded:
+                order.points_awarded = True
+                bonus = int(order.total_price * BONUS_ACCRUAL_RATE)
+                if bonus > 0:
+                    await session.execute(
+                        update(User)
+                        .where(User.user_id == order.user_id)
+                        .values(coins=func.coalesce(User.coins, 0) + bonus)
+                    )
 
     async def _get_users_by_id(self, session: AsyncSession, user_ids: set[int]) -> dict[int, User]:
         if not user_ids:
@@ -539,3 +575,11 @@ class RentalService(BaseService, RentalServiceI):
     def _validate_period(date_from: datetime, date_to: datetime) -> None:
         if date_to <= date_from:
             raise InvalidRentalPeriodError("date_to must be later than date_from")
+        # Reject bookings in the past and absurdly long ones — both let a crafted
+        # request hold/record inventory with nonsensical dates. A small grace
+        # tolerates clock skew and a pickup chosen for "right now".
+        now = datetime.now(tz=date_from.tzinfo) if date_from.tzinfo else datetime.utcnow()
+        if date_from < now - _PAST_BOOKING_GRACE:
+            raise InvalidRentalPeriodError("Rental cannot start in the past")
+        if date_to - date_from > _MAX_RENTAL_DURATION:
+            raise InvalidRentalPeriodError(f"Rental cannot exceed {_MAX_RENTAL_DURATION.days} days")

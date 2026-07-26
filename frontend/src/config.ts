@@ -27,3 +27,7 @@ const base = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL)
 
 export default base
 export const ADMIN_URL = `${base}admin/`
+
+// Single pickup point — there's only one, so it's a fixed constant rather
+// than something the client selects or types in.
+export const PICKUP_ADDRESS = 'ул. Спитамена 3'

@@ -20,6 +20,7 @@ type OrderFormState = {
     comment: string
     address: string
     paymentOption: PaymentOption
+    useCoins: boolean
 }
 
 type OrderContextType = {
@@ -32,6 +33,7 @@ type OrderContextType = {
     closeReceiptNotice: () => void
     updateField: (field: keyof OrderFormState, value: string) => void
     updateSelectField: (field: keyof OrderFormState, value: string[]) => void
+    setUseCoins: (value: boolean) => void
     submitOrder: (basket: Basket) => Promise<boolean>
     resetForm: () => void
 }
@@ -54,6 +56,7 @@ export const OrderProvider = ({
         comment: '',
         address: '',
         paymentOption: 'cash',
+        useCoins: false,
     })
 
     useEffect(() => {
@@ -80,7 +83,6 @@ export const OrderProvider = ({
         const requiredFields: Array<keyof OrderFormState> = [
             'firstName',
             'phone',
-            'address',
             'paymentOption',
         ]
 
@@ -133,6 +135,10 @@ export const OrderProvider = ({
         [updateField]
     )
 
+    const setUseCoins = useCallback((value: boolean) => {
+        setFormState((prev) => ({ ...prev, useCoins: value }))
+    }, [])
+
     const submitOrder = useCallback(
         async (basket: Basket) => {
             if (!basket?.basket_id) {
@@ -154,11 +160,10 @@ export const OrderProvider = ({
                     basket_id: basket.basket_id,
                     payment_option: formState.paymentOption,
                     comment: formState.comment,
-                    status: 'created',
                     first_name: formState.firstName,
                     address: formState.address,
                     phone: formState.phone,
-                    discount: 0,
+                    use_coins: formState.useCoins,
                 })
 
                 setIsSuccess(true)
@@ -187,6 +192,7 @@ export const OrderProvider = ({
             comment: '',
             address: '',
             paymentOption: 'cash',
+            useCoins: false,
         })
         setErrors({})
         setSubmitError(null)
@@ -205,6 +211,7 @@ export const OrderProvider = ({
                 closeReceiptNotice,
                 updateField,
                 updateSelectField,
+                setUseCoins,
                 submitOrder,
                 resetForm,
             }}
