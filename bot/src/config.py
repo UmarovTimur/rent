@@ -33,17 +33,28 @@ INTERNAL_API_TOKEN = getenv("INTERNAL_API_TOKEN", "")
 INTERNAL_HEADERS = {"X-Internal-Token": INTERNAL_API_TOKEN} if INTERNAL_API_TOKEN else {}
 
 ADMIN_CHAT_ID = int(getenv("ADMIN_CHAT_ID") or 0)
+# Contacts shown to clients (deposit instructions, ban notice, etc.) — one
+# source of truth so bot messages never disagree with each other about who to
+# contact.
+MANAGER_USERNAME = getenv("MANAGER_USERNAME") or "@withBen"
+SUPPORT_USERNAME = getenv("SUPPORT_USERNAME") or "@Status_3"
 PAYMENT_CARD_NUMBER = getenv("PAYMENT_CARD_NUMBER", "")
-# Digits only (spaces stripped) — this is what clients see in a tappable <code>
-# block, so it copies straight into a bank app's transfer field. Use this
-# everywhere the card is shown; don't re-strip spaces at each call site.
+# Digits only (spaces stripped) — canonical form for any internal use.
 CARD_NUMBER_PLAIN = PAYMENT_CARD_NUMBER.replace(" ", "")
+# Grouped in 4s for display ("5614 6812 1057 3396") — easier for clients to
+# read/copy than one long digit run. Use this everywhere the card is shown.
+CARD_NUMBER_DISPLAY = " ".join(
+    CARD_NUMBER_PLAIN[i : i + 4] for i in range(0, len(CARD_NUMBER_PLAIN), 4)
+)
 DEPOSIT_AMOUNT = int(getenv("DEPOSIT_AMOUNT", 100000))
 
 # Pickup point sent to the client (Telegram location pin) after a confirmed
 # receipt. One source of truth so the coordinates aren't scattered as literals.
 PICKUP_LATITUDE = 41.271367
 PICKUP_LONGITUDE = 69.228406
+# There's only one pickup address — a fixed constant, not something read from
+# client-submitted order data (mirrors frontend/src/config.ts's PICKUP_ADDRESS).
+PICKUP_ADDRESS = "ул. Спитамена 3"
 FRONTEND_URL = (getenv("FRONTEND_URL") or "").strip().rstrip("/")
 admin_calendar_url = f"{FRONTEND_URL}/app/admin" if FRONTEND_URL else ""
 # DEPOSIT_PERCENT = int(getenv("DEPOSIT_PERCENT", 20))  # процент от суммы заказа
@@ -57,6 +68,7 @@ def fmt_price(amount: int | float) -> str:
 host = _get_backend_host()
 base_api_url = f"{host}/api/v1"
 get_user_by_id_url = f"{base_api_url}/users/get_user_by_id"
+get_user_by_username_url = f"{base_api_url}/users/get_by_username"  # GET ?username=
 create_user_url = f"{base_api_url}/users/create_user"
 update_user_url = f"{base_api_url}/users/update_user"  # PATCH ?user_id=
 get_admins_url = f"{base_api_url}/users/admins"

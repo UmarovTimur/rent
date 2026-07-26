@@ -46,6 +46,34 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "ru": "✅ Язык установлен: Русский",
         "uz": "✅ Til tanlandi: O‘zbekcha",
     },
+    "menu_language": {
+        "ru": "🌐 Язык",
+        "uz": "🌐 Til",
+    },
+    "menu_refreshed": {
+        "ru": "Клавиатура обновлена.",
+        "uz": "Klaviatura yangilandi.",
+    },
+    "menu_my_orders": {
+        "ru": "📋 Мои заказы",
+        "uz": "📋 Buyurtmalarim",
+    },
+    "my_orders_empty": {
+        "ru": "У вас нет активных заказов.",
+        "uz": "Sizda faol buyurtmalar yo‘q.",
+    },
+    "my_orders_header": {
+        "ru": "📋 <b>Ваши активные заказы:</b>",
+        "uz": "📋 <b>Sizning faol buyurtmalaringiz:</b>",
+    },
+    "pay_card": {
+        "ru": "Картой",
+        "uz": "Karta orqali",
+    },
+    "pay_cash": {
+        "ru": "Наличными",
+        "uz": "Naqd pul",
+    },
     # ─── Registration ─────────────────────────────────────────────────────
     "phone_prompt": {
         "ru": (
@@ -110,6 +138,18 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "ru": "Произошла непредвиденная ошибка. Пожалуйста, попробуйте позже.",
         "uz": "Kutilmagan xatolik yuz berdi. Iltimos, keyinroq urinib ko‘ring.",
     },
+    "banned_notice": {
+        "ru": (
+            "🚫 <b>Ваш аккаунт заблокирован.</b>\n"
+            "Оформление заказов недоступно.\n\n"
+            "По вопросам обращайтесь к менеджеру: {manager}"
+        ),
+        "uz": (
+            "🚫 <b>Hisobingiz bloklangan.</b>\n"
+            "Buyurtma berish mavjud emas.\n\n"
+            "Savollar bo‘yicha menejerga murojaat qiling: {manager}"
+        ),
+    },
     # ─── Receipt flow ─────────────────────────────────────────────────────
     "no_pending_orders": {
         "ru": "У вас нет заказов, ожидающих подтверждения оплаты.",
@@ -118,6 +158,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "receipt_which_order": {
         "ru": "У вас несколько заказов, ожидающих оплаты. К какому из них относится этот чек?",
         "uz": "Sizda to‘lovni kutayotgan bir nechta buyurtma bor. Bu chek qaysi biriga tegishli?",
+    },
+    "receipt_order_button": {
+        "ru": "Заказ #{order_id} — {price} сум",
+        "uz": "#{order_id} buyurtma — {price} so‘m",
     },
     "receipt_received": {
         "ru": "Чек получен, проверяем оплату...",
@@ -175,20 +219,24 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "uz": "❕Tasdiqlash uchun <b>{deposit} so‘m</b> oldindan to‘lovni kartaga o‘tkazing:\n\n",
     },
     "deposit_card": {
-        "ru": "💳 <code>{card_number}</code>\n\n",
-        "uz": "💳 <code>{card_number}</code>\n\n",
+        "ru": "💳 <b><code>{card_number}</code></b>\n\n",
+        "uz": "💳 <b><code>{card_number}</code></b>\n\n",
     },
     "send_receipt_hint": {
-        "ru": "❗️ После оплаты отправьте фото чека в этот чат\n\n",
-        "uz": "❗️ To‘lovdan so‘ng chek rasmini shu chatga yuboring\n\n",
+        "ru": "❗️ <b>После оплаты отправьте фото чека в этот чат</b>\n\n",
+        "uz": "❗️ <b>To‘lovdan so‘ng chek rasmini shu chatga yuboring</b>\n\n",
     },
-    "manager_contact": {
-        "ru": "👨‍💼 Менеджер: {manager}\n",
-        "uz": "👨‍💼 Menejer: {manager}\n",
+    "order_items_header": {
+        "ru": "📦 <b>Состав:</b>\n{items}\n\n",
+        "uz": "📦 <b>Tarkib:</b>\n{items}\n\n",
     },
-    "support_contact": {
-        "ru": "🛠 Поддержка: {support}",
-        "uz": "🛠 Qo‘llab-quvvatlash: {support}",
+    "coins_redeemed": {
+        "ru": "🎁 Списано баллов: <b>{amount} сум</b>\n\n",
+        "uz": "🎁 Ball hisobidan yechildi: <b>{amount} so‘m</b>\n\n",
+    },
+    "coins_earned": {
+        "ru": "🎁 Вам начислено бонусных баллов: <b>{amount} сум</b> — можно использовать на следующий заказ.",
+        "uz": "🎁 Sizga bonus ball hisoblandi: <b>{amount} so‘m</b> — keyingi buyurtmada ishlatishingiz mumkin.",
     },
     # ─── Reminders & status ───────────────────────────────────────────────
     "pickup_reminder": {

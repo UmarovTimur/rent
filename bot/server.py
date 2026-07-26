@@ -1,6 +1,7 @@
 # server.py
 from aiohttp import web
 import asyncio
+import html
 import logging
 import os
 from datetime import datetime, timedelta
@@ -9,17 +10,18 @@ from http import HTTPStatus
 import aiohttp
 
 from src.config import (
-    ADMIN_CHAT_ID,
-    CARD_NUMBER_PLAIN,
+    CARD_NUMBER_DISPLAY,
     DEPOSIT_AMOUNT,
     INTERNAL_API_TOKEN,
     INTERNAL_HEADERS,
+    PICKUP_ADDRESS,
     REQUEST_TIMEOUT,
     bot,
     fmt_price,
     get_order_url,
 )
 from src.i18n import status_label, t
+from src.order_items import format_order_items
 from src.user_lang import fetch_user_language
 
 logger = logging.getLogger(__name__)
@@ -132,10 +134,6 @@ async def _fetch_order(order_id: int) -> dict | None:
         return None
 
 
-_MANAGER_USERNAME = "@withBen"
-_SUPPORT_USERNAME = "@Status_3"
-
-
 async def _notify_client_created(order_id: int) -> None:
     order = await _fetch_order(order_id)
     if not order:
@@ -155,17 +153,20 @@ async def _notify_client_created(order_id: int) -> None:
         dt = datetime.fromisoformat(max(rental_ends).replace("Z", "+00:00")) + timedelta(hours=5)
         return_line = t("return_date", lang, dt=dt.strftime("%d.%m.%Y %H:%M"))
 
-    address = order.get("address") or t("address_pending", lang)
+    items_text = format_order_items(order.get("items", []))
+    items_block = t("order_items_header", lang, items=items_text) if items_text else ""
+    discount = order.get("discount") or 0
+    discount_line = t("coins_redeemed", lang, amount=fmt_price(discount)) if discount > 0 else ""
     text = (
         t("order_created", lang, order_id=order_id)
         + pickup_line
         + return_line
-        + t("pickup_address", lang, address=address)
+        + items_block
+        + discount_line
+        + t("pickup_address", lang, address=PICKUP_ADDRESS)
         + t("deposit_instructions", lang, deposit=fmt_price(DEPOSIT_AMOUNT))
-        + t("deposit_card", lang, card_number=CARD_NUMBER_PLAIN)
+        + t("deposit_card", lang, card_number=CARD_NUMBER_DISPLAY)
         + t("send_receipt_hint", lang)
-        + t("manager_contact", lang, manager=_MANAGER_USERNAME)
-        + t("support_contact", lang, support=_SUPPORT_USERNAME)
     )
     try:
         await bot.send_message(order["user_id"], text)
@@ -181,18 +182,21 @@ async def _notify_pickup(order_id: int) -> None:
     client_text = t("pickup_reminder", await fetch_user_language(order["user_id"]), order_id=order_id)
     admin_text = (
         f"⏰ <b>Напоминание о выдаче заказа #{order_id}</b>\n"
-        f"👤 {order.get('first_name', '—')} | 📞 {order.get('phone', '—')}\n"
+        f"👤 {html.escape(str(order.get('first_name') or '—'))} | 📞 {html.escape(str(order.get('phone') or '—'))}\n"
         f"Клиент заберёт заказ через ~2 часа."
     )
     try:
         await bot.send_message(order["user_id"], client_text)
     except Exception:
         logger.exception("Failed to send pickup reminder to user %s", order.get("user_id"))
-    if ADMIN_CHAT_ID:
+
+    from src.handlers.admin_callbacks import get_admin_recipients
+
+    for admin_id in await get_admin_recipients():
         try:
-            await bot.send_message(ADMIN_CHAT_ID, admin_text)
+            await bot.send_message(admin_id, admin_text)
         except Exception:
-            logger.exception("Failed to send pickup reminder to admin chat %s", ADMIN_CHAT_ID)
+            logger.exception("Failed to send pickup reminder to admin %s", admin_id)
 
 
 async def _notify_return(order_id: int) -> None:
@@ -203,18 +207,21 @@ async def _notify_return(order_id: int) -> None:
     client_text = t("return_reminder", await fetch_user_language(order["user_id"]), order_id=order_id)
     admin_text = (
         f"⏰ <b>Напоминание о возврате заказа #{order_id}</b>\n"
-        f"👤 {order.get('first_name', '—')} | 📞 {order.get('phone', '—')}\n"
+        f"👤 {html.escape(str(order.get('first_name') or '—'))} | 📞 {html.escape(str(order.get('phone') or '—'))}\n"
         f"Клиент должен вернуть заказ через ~2 часа."
     )
     try:
         await bot.send_message(order["user_id"], client_text)
     except Exception:
         logger.exception("Failed to send return reminder to user %s", order.get("user_id"))
-    if ADMIN_CHAT_ID:
+
+    from src.handlers.admin_callbacks import get_admin_recipients
+
+    for admin_id in await get_admin_recipients():
         try:
-            await bot.send_message(ADMIN_CHAT_ID, admin_text)
+            await bot.send_message(admin_id, admin_text)
         except Exception:
-            logger.exception("Failed to send return reminder to admin chat %s", ADMIN_CHAT_ID)
+            logger.exception("Failed to send return reminder to admin %s", admin_id)
 
 
 async def _notify_status_changed(order_id: int) -> None:
@@ -242,16 +249,19 @@ async def _notify_hold_expired_cancelled(order_id: int) -> None:
     except Exception:
         logger.exception("Failed to notify user %s about hold-expired cancellation", order.get("user_id"))
 
-    if ADMIN_CHAT_ID:
-        admin_text = (
-            f"⏱ <b>Заказ #{order_id} автоматически отменён</b>\n"
-            f"👤 {order.get('first_name', '—')} | 📞 {order.get('phone', '—')}\n"
-            f"Причина: не оплачен за 10 минут, даты заняты другим заказом."
-        )
+    admin_text = (
+        f"⏱ <b>Заказ #{order_id} автоматически отменён</b>\n"
+        f"👤 {html.escape(str(order.get('first_name') or '—'))} | 📞 {html.escape(str(order.get('phone') or '—'))}\n"
+        f"Причина: не оплачен за 10 минут, даты заняты другим заказом."
+    )
+
+    from src.handlers.admin_callbacks import get_admin_recipients
+
+    for admin_id in await get_admin_recipients():
         try:
-            await bot.send_message(ADMIN_CHAT_ID, admin_text)
+            await bot.send_message(admin_id, admin_text)
         except Exception:
-            logger.exception("Failed to notify admin chat about hold-expired cancellation for order %s", order_id)
+            logger.exception("Failed to notify admin %s about hold-expired cancellation for order %s", admin_id, order_id)
 
 
 async def run_http_server():
