@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, Float, ForeignKey, Integer, String
+from sqlalchemy import BigInteger, Boolean, CheckConstraint, DateTime, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, backref, mapped_column, relationship
 
 from src.clients.database.base import Base
@@ -10,7 +10,8 @@ class Order(Base):
     __tablename__ = "orders"
 
     order_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(nullable=False)
+    # BigInteger: Telegram user ids now exceed int32 range.
+    user_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     basket_id: Mapped[int] = mapped_column(ForeignKey("baskets.basket_id", ondelete="CASCADE"), nullable=False)
     order_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
     total_price: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -23,6 +24,10 @@ class Order(Base):
     discount: Mapped[float] = mapped_column(nullable=True)
     pickup_reminder_sent: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
     return_reminder_sent: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
+    # Set once bonus coins are credited for this order (on handover/"taken") —
+    # guards against double-crediting if an admin corrects a mistake and
+    # re-enters "taken" (undo_handover -> handover again).
+    points_awarded: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
     # Payment hold: while status == "created" and this is in the future, the order
     # blocks availability like a confirmed one. Once it passes, the order stops
     # blocking (but isn't deleted/cancelled) unless a conflict forces cancellation —

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey
+from sqlalchemy import BigInteger, CheckConstraint, DateTime, ForeignKey
 from sqlalchemy.orm import Mapped, backref, mapped_column, relationship
 
 from src.clients.database.base import Base
@@ -21,7 +21,8 @@ class Basket(Base):
     )
 
     basket_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(nullable=False)
+    # BigInteger: Telegram user ids now exceed int32 range.
+    user_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     discount: Mapped[float] = mapped_column(nullable=True)
     # Selected trip window, persisted independently of items (survives an empty basket).
     rental_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
